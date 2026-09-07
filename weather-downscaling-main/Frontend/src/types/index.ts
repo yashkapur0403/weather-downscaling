@@ -34,6 +34,9 @@ export interface Panchayat {
   state: string;
   date: string;           // "2022-07-10"
   rainfall_mm: number;
+  temperature_c: number;
+  humidity_pct: number;
+  elevation_m: number;
   n_cells: number;
   mapping_method: 'direct_grid' | 'area_weighted' | 'nearest_fallback';
   fallback_distance_m: number | null;

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { LeftSidebar } from '../components/sidebar/LeftSidebar';
 import { RightSidebar } from '../components/sidebar/RightSidebar';
 import { MapView } from '../components/map/MapView';
-import { queryWeather, fetchMetrics } from '../api/backend';
+import { queryWeather, fetchMetrics, geocodePanchayat } from '../api/backend';
 import type { Panchayat, ModelMetrics, QueryRequest, QueryResponse } from '../types';
 import { AdvisoryPanel } from '../components/advisory/AdvisoryPanel';
 import { Database, Cpu, Map, Brain, Info } from 'lucide-react';
@@ -34,7 +34,13 @@ export function HomePage() {
 
 
 
-  const handleSelect = useCallback((p: Panchayat) => {
+  const handleSelect = useCallback(async (p: Panchayat) => {
+    try {
+      const coordinates = await geocodePanchayat(p);
+      p = { ...p, ...coordinates };
+    } catch (error) {
+      console.warn('Location geocoding failed; keeping the search result.', error);
+    }
     setSelected(p);
     setIsProjectionRun(false);
   }, []);
@@ -64,6 +70,9 @@ export function HomePage() {
       setSelected({
         ...selected,
         rainfall_mm: response.prediction.rainfall_mm || selected.rainfall_mm,
+        temperature_c: response.prediction.temperature_c ?? selected.temperature_c,
+        humidity_pct: response.prediction.humidity_pct ?? selected.humidity_pct,
+        elevation_m: response.prediction.elevation_m ?? selected.elevation_m,
       });
       
       setIsProjectionRun(true);

@@ -42,6 +42,16 @@ export async function searchPanchayats(q: string, limit = 20): Promise<Panchayat
   return apiFetch<Panchayat[]>(`/api/panchayats?${params}`);
 }
 
+export async function geocodePanchayat(panchayat: Panchayat): Promise<{ lat: number; lon: number }> {
+  const params = new URLSearchParams({
+    panchayat_name: panchayat.panchayat_name,
+    block_name: panchayat.block_name,
+    district: panchayat.district,
+    state: panchayat.state,
+  });
+  return apiFetch<{ lat: number; lon: number }>(`/api/geocode?${params}`);
+}
+
 // ── Weather (temperature, humidity, elevation) ───────────────────────────────
 export async function fetchWeather(
   lat: number,

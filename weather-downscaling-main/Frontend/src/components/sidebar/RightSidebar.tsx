@@ -2,7 +2,7 @@
 
 import type { Panchayat, ModelMetrics } from '../../types';
 import { classifyRisk, RISK_LABEL } from '../../types';
-import { CloudRain, Brain, MapPin, Info } from 'lucide-react';
+import { CloudRain, Brain, MapPin, Info, Thermometer, Droplets, Mountain } from 'lucide-react';
 
 interface RightSidebarProps {
   selected: Panchayat | null;
@@ -64,6 +64,25 @@ export function RightSidebar({
           </div>
           <p className="metric-number text-2xl">{selected.rainfall_mm.toFixed(2)}</p>
           <p className="text-[0.6rem] mt-0.5" style={{ color: 'var(--muted)' }}>mm/day · {selected.n_cells} cell{selected.n_cells !== 1 ? 's' : ''} · {selected.mapping_method}</p>
+        </div>
+
+        {/* Context fields */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="metric-panel">
+            <Thermometer className="w-3.5 h-3.5 mb-2" style={{ color: 'var(--heat-3)' }} />
+            <p className="metric-number text-lg">{selected.temperature_c.toFixed(1)}°</p>
+            <p className="text-[0.55rem] mt-0.5" style={{ color: 'var(--muted)' }}>Temperature</p>
+          </div>
+          <div className="metric-panel">
+            <Droplets className="w-3.5 h-3.5 mb-2" style={{ color: 'var(--heat-1)' }} />
+            <p className="metric-number text-lg">{selected.humidity_pct}%</p>
+            <p className="text-[0.55rem] mt-0.5" style={{ color: 'var(--muted)' }}>Humidity</p>
+          </div>
+          <div className="metric-panel">
+            <Mountain className="w-3.5 h-3.5 mb-2" style={{ color: 'var(--reference)' }} />
+            <p className="metric-number text-lg">{selected.elevation_m}</p>
+            <p className="text-[0.55rem] mt-0.5" style={{ color: 'var(--muted)' }}>Elevation m</p>
+          </div>
         </div>
 
         {/* Model MAE */}

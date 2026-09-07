@@ -34,7 +34,6 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
         attributionControl: false,
       });
 
-      // OpenStreetMap tiles (free, no API key required)
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
       }).addTo(map);
@@ -44,7 +43,7 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
 
       // Attribution at bottom
       L.control.attribution({ position: 'bottomleft', prefix: false })
-        .addAttribution('© <a href="https://osm.org/copyright">OpenStreetMap</a> contributors')
+        .addAttribution('© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')
         .addTo(map);
 
       mapInstanceRef.current = map;
@@ -117,7 +116,7 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
               Search a location to begin
             </p>
             <p className="text-[0.6rem]" style={{ color: 'rgba(140,140,150,0.4)' }}>
-              Panchayat rainfall · OpenStreetMap · ERA5 · SRTM
+              Panchayat rainfall · Leaflet · OpenStreetMap · ERA5 · SRTM
             </p>
           </div>
         </div>

@@ -36,10 +36,6 @@ function generateLocalAdvisory(p: Panchayat, crop: CropType, stage: CropStage): 
     actions.push('Continue scheduled operations', 'Maintain regular irrigation if dry conditions persist');
   }
 
-  if (weather?.temperature_c != null && weather.temperature_c > 38) {
-    actions.push('High temperature stress — ensure adequate irrigation');
-  }
-
   return {
     advisory_text: advisoryText,
     severity,
@@ -53,8 +49,8 @@ function generateLocalAdvisory(p: Panchayat, crop: CropType, stage: CropStage): 
         if (rainfall < 50) return 'heavy';
         return 'very_heavy';
       })(),
-      temperature_c: null,
-      humidity_pct: null,
+      temperature_c: p.temperature_c,
+      humidity_pct: p.humidity_pct,
     },
     data_date: p.date,
     disclaimer: 'Client-side advisory based on rainfall thresholds only. Not a substitute for official meteorological guidance.',

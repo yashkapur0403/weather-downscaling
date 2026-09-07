@@ -85,9 +85,16 @@ class ModelLoader:
 
                 ckpt = torch.load(path, map_location=self.device)
                 channels = ckpt.get("channels", DEFAULT_CHANNELS)
-                state_dict = ckpt.get("model_state_dict", ckpt)
+                state_dict = ckpt.get("model_state_dict", ckpt.get("model", ckpt))
+                state_dict = {
+                    key.replace("bott.", "bottleneck.").replace("head.", "out_conv."): value
+                    for key, value in state_dict.items()
+                }
 
-                model = ResidualUNet(in_channels=len(channels))
+                model = ResidualUNet(
+                    in_channels=len(channels),
+                    base_ch=int(ckpt.get("width", 16)),
+                )
                 model.load_state_dict(state_dict)
                 model.eval()
                 model.to(self.device)

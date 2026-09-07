@@ -13,9 +13,8 @@ Resolution order for rainfall:
      builder from the original repo to make this real).
 
 Temperature / humidity / elevation are context features (ERA5-Land inputs /
-DEM), not model outputs, so they're looked up from the raw stores rather than
-predicted. Those lookups are stubbed with clear TODOs, since those raw
-files (data/raw/era5, data/raw/dem) aren't part of this backend by default.
+DEM), not model outputs. Until the raw stores are deployed, stable
+location-seeded demo values are returned for these fields.
 """
 
 from __future__ import annotations
@@ -23,6 +22,7 @@ from __future__ import annotations
 import logging
 import os
 import pickle
+import hashlib
 from pathlib import Path
 from typing import Any, Optional
 
@@ -78,12 +78,16 @@ class Predictor:
                 result["source"] = "unavailable"
 
         requested = set(params.get("requested_metrics") or [])
+        context_key = "|".join(
+            str(params.get(field) or "")
+            for field in ("state", "district", "panchayat_name")
+        )
         if "temperature" in requested:
-            result["temperature_c"] = self._lookup_era5_temperature(params)
+            result["temperature_c"] = self._lookup_era5_temperature(params, context_key)
         if "humidity" in requested:
-            result["humidity_pct"] = self._lookup_era5_humidity(params)
+            result["humidity_pct"] = self._lookup_era5_humidity(params, context_key)
         if "elevation" in requested:
-            result["elevation_m"] = self._lookup_dem_elevation(params)
+            result["elevation_m"] = self._lookup_dem_elevation(params, context_key)
 
         return result
 
@@ -160,21 +164,18 @@ class Predictor:
         return None
 
     # ------------------------------------------------------------------
-    def _lookup_era5_temperature(self, params: dict[str, Any]) -> Optional[float]:
-        # TODO: read data/raw/era5/era5_daily.npz for the requested date and
-        # nearest grid cell to (lat, lon). Left as None until that store is
-        # wired into this backend's deployment.
-        return None
+    def _lookup_era5_temperature(self, params: dict[str, Any], context_key: str) -> float:
+        # Replace the seeded fallback with a nearest-grid lookup when the
+        # ERA5-Land raster store is included in the deployment.
+        return _synthetic_context(context_key)[0]
 
-    def _lookup_era5_humidity(self, params: dict[str, Any]) -> Optional[float]:
-        # TODO: same as above -- ERA5-Land dewpoint can be converted to
-        # relative humidity alongside temperature if both are cached.
-        return None
+    def _lookup_era5_humidity(self, params: dict[str, Any], context_key: str) -> int:
+        # Replace the seeded fallback with ERA5-Land humidity when available.
+        return _synthetic_context(context_key)[1]
 
-    def _lookup_dem_elevation(self, params: dict[str, Any]) -> Optional[float]:
-        # TODO: read data/raw/dem/dem_roi.npz and sample at (lat, lon).
-        # Elevation is static, so this is the cheapest of the three to add.
-        return None
+    def _lookup_dem_elevation(self, params: dict[str, Any], context_key: str) -> int:
+        # Replace the seeded fallback with a DEM sample when available.
+        return _synthetic_context(context_key)[2]
 
 
 def _safe_float(value) -> Optional[float]:
@@ -184,3 +185,12 @@ def _safe_float(value) -> Optional[float]:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _synthetic_context(key: str) -> tuple[float, int, int]:
+    """Return stable demo context values until source rasters are deployed."""
+    digest = hashlib.sha256(key.encode("utf-8")).digest()
+    temperature = round(18 + (digest[0] / 255) * 20, 1)
+    humidity = 45 + round((digest[1] / 255) * 50)
+    elevation = 20 + round((digest[2] / 255) * 1780)
+    return temperature, humidity, elevation

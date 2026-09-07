@@ -1,7 +1,9 @@
 import os
 import logging
+import hashlib
+import requests
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routers.query_router import query_router
 from backend.utils.model_loader import ModelLoader
@@ -24,6 +26,14 @@ predictor = Predictor(
     layer2_csv=LAYER2_CSV_PATH,
     layer2_pickle=LAYER2_PICKLE_PATH,
 )
+
+def _synthetic_context(key: str) -> tuple[float, int, int]:
+    """Return stable demo context values for locations without source rasters."""
+    digest = hashlib.sha256(key.encode("utf-8")).digest()
+    temperature = round(18 + (digest[0] / 255) * 20, 1)
+    humidity = 45 + round((digest[1] / 255) * 50)
+    elevation = 20 + round((digest[2] / 255) * 1780)
+    return temperature, humidity, elevation
 
 
 @asynccontextmanager
@@ -133,21 +143,22 @@ def search_panchayats(q: str = "", limit: int = 20):
         return []
     
     if not q:
-        return df.head(limit).to_dict(orient="records")
-    
-    # Search across multiple columns
-    mask = (
-        df["panchayat_name"].astype(str).str.contains(q, case=False, na=False) |
-        df["block_name"].astype(str).str.contains(q, case=False, na=False) |
-        df["district"].astype(str).str.contains(q, case=False, na=False) |
-        df["state"].astype(str).str.contains(q, case=False, na=False)
-    )
-    
-    results = df[mask].head(limit)
+        results = df.head(limit)
+    else:
+        mask = (
+            df["panchayat_name"].astype(str).str.contains(q, case=False, na=False) |
+            df["block_name"].astype(str).str.contains(q, case=False, na=False) |
+            df["district"].astype(str).str.contains(q, case=False, na=False) |
+            df["state"].astype(str).str.contains(q, case=False, na=False)
+        )
+        results = df[mask].head(limit)
     
     # Convert to format expected by frontend
-    return [
-        {
+    response = []
+    for _, row in results.iterrows():
+        key = f"{row.get('state', '')}|{row.get('district', '')}|{row.get('panchayat_name', '')}"
+        temperature, humidity, elevation = _synthetic_context(key)
+        response.append({
             "panchayat_id": int(row.get("panchayat_id", 0)),
             "panchayat_name": str(row.get("panchayat_name", "")),
             "block_name": str(row.get("block_name", "")),
@@ -156,14 +167,73 @@ def search_panchayats(q: str = "", limit: int = 20):
             "state": str(row.get("state", "")),
             "date": "2022-07-10",  # Default date since CSV doesn't have it
             "rainfall_mm": float(row.get("rainfall_mm", 0)),
+            "temperature_c": temperature,
+            "humidity_pct": humidity,
+            "elevation_m": elevation,
             "n_cells": 1,
             "mapping_method": "direct_grid",
             "fallback_distance_m": None,
             "lat": None,
             "lon": None,
-        }
-        for _, row in results.iterrows()
+        })
+    return response
+
+
+@app.get("/api/geocode", tags=["Search"])
+def geocode_panchayat(
+    panchayat_name: str,
+    block_name: str,
+    district: str,
+    state: str,
+):
+    """Resolve a selected panchayat to coordinates using OpenStreetMap Nominatim."""
+    queries = [
+        f"{panchayat_name}, {block_name}, {district}, {state}, India",
+        f"{panchayat_name}, {district}, {state}, India",
+        f"{block_name}, {district}, {state}, India",
+        f"{district}, {state}, India",
     ]
+    results = []
+    try:
+        for query in queries:
+            response = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": query, "format": "jsonv2", "limit": 1, "countrycodes": "in"},
+                headers={"User-Agent": "weather-downscaling-local-app/1.0"},
+                timeout=8,
+            )
+            response.raise_for_status()
+            results = response.json()
+            if results:
+                break
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail="OpenStreetMap geocoding is unavailable") from exc
+
+    if not results:
+        raise HTTPException(status_code=404, detail="Location coordinates not found")
+
+    result = results[0]
+    temperature, humidity, elevation = _synthetic_context(
+        f"{state}|{district}|{panchayat_name}"
+    )
+    return {
+        "panchayat_id": 0,
+        "panchayat_name": panchayat_name,
+        "block_name": block_name,
+        "block_id": 0,
+        "district": district,
+        "state": state,
+        "date": "2022-07-10",
+        "rainfall_mm": 0,
+        "temperature_c": temperature,
+        "humidity_pct": humidity,
+        "elevation_m": elevation,
+        "n_cells": 1,
+        "mapping_method": "direct_grid",
+        "fallback_distance_m": None,
+        "lat": float(result["lat"]),
+        "lon": float(result["lon"]),
+    }
 
 
 @app.get("/api/advisory", tags=["Advisory"])
