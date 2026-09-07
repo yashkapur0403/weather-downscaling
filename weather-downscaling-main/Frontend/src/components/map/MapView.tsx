@@ -1,5 +1,6 @@
 'use client';
 
+import 'leaflet/dist/leaflet.css'; // ← [1] Static CSS import
 import { useEffect, useRef } from 'react';
 import type { Panchayat } from '../../types';
 
@@ -13,7 +14,6 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
   const mapInstanceRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
 
-  // ── Initialize map (once) ──────────────────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -22,7 +22,6 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
     import('leaflet').then((L) => {
       if (cancelled || !mapRef.current || mapInstanceRef.current) return;
 
-      // Guard: if the container already has a Leaflet instance, remove it first
       if ((mapRef.current as any)._leaflet_id) {
         mapRef.current.innerHTML = '';
       }
@@ -38,27 +37,39 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
         maxZoom: 19,
       }).addTo(map);
 
-      // Zoom control on top-right
       L.control.zoom({ position: 'topright' }).addTo(map);
 
-      // Attribution at bottom
       L.control.attribution({ position: 'bottomleft', prefix: false })
         .addAttribution('© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors')
         .addTo(map);
 
       mapInstanceRef.current = map;
 
-      // Click handler to select location
       map.on('click', (e: any) => {
         if (onSelectLocation) {
           onSelectLocation(e.latlng.lat, e.latlng.lng);
         }
       });
+
+      // ← [2] invalidateSize after rAF so container has settled
+      requestAnimationFrame(() => {
+        if (!cancelled) map.invalidateSize({ animate: false });
+      });
+
+      // ← [3] ResizeObserver for right panel appearing/disappearing
+      if (mapRef.current) {
+        const ro = new ResizeObserver(() => {
+          mapInstanceRef.current?.invalidateSize();
+        });
+        ro.observe(mapRef.current);
+        (map as any)._resizeObserver = ro;
+      }
     });
 
     return () => {
       cancelled = true;
       if (mapInstanceRef.current) {
+        (mapInstanceRef.current as any)._resizeObserver?.disconnect(); // ← cleanup
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
@@ -74,12 +85,10 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
       const map = mapInstanceRef.current;
       if (!map) return;
 
-      // Remove old marker
       if (markerRef.current) {
         map.removeLayer(markerRef.current);
       }
 
-      // Custom marker
       const icon = L.divIcon({
         className: '',
         html: `<div style="width:14px;height:14px;background:#DC2626;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>`,
@@ -100,7 +109,6 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
 
       markerRef.current = marker;
 
-      // Smooth pan to location
       map.flyTo([selected.lat!, selected.lon!], 11, { duration: 1.2 });
     });
   }, [selected]);
@@ -108,7 +116,6 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
   return (
     <div className="relative w-full h-full gpu-layer">
       <div ref={mapRef} className="w-full h-full" style={{ background: '#050608' }} />
-      {/* Map overlay text when nothing selected */}
       {!selected && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-center">
