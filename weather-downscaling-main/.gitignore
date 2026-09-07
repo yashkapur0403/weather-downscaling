@@ -1,0 +1,14 @@
+# Large / regenerable artifacts (scripts re-create them; see README)
+data/
+prediction/
+
+# Environments & caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db

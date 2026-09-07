@@ -1,0 +1,368 @@
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/inter/800.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── OpenPlanet color tokens ────────────────────────────────────────────── */
+:root {
+  --canvas:          #050608;
+  --panel:           #0A0A0C;
+  --raised:          #0F0F12;
+  --raised-hover:    #141418;
+  --hairline:        rgba(255, 255, 255, 0.06);
+  --hairline-strong: rgba(255, 255, 255, 0.12);
+  --text:            #EDEDEF;
+  --text-2:          #B4B4BD;
+  --muted:           #8C8C96;
+  --heat-1:          #2F6F8F;
+  --heat-2:          #B79237;
+  --heat-3:          #BE6A2E;
+  --heat-4:          #A23A30;
+  --heat-5:          #6E2020;
+  --positive:        #5E8C6A;
+  --reference:       #6E8CA8;
+  --copper:          #B08D57;
+
+  /* Obsidian compat aliases (used by existing components) */
+  --bg:        #050608;
+  --surface:   #0A0A0C;
+  --border:    rgba(255, 255, 255, 0.06);
+  --primary:   #DC2626;
+  --navy:      #1E3A8A;
+}
+
+/* ── Reset / base ────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--canvas);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 3px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.05); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.10); }
+
+/* ── Typography ──────────────────────────────────────────────────────────── */
+.label-sm {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.metric-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text);
+}
+
+/* ── Dashboard layout ───────────────────────────────────────────────────── */
+.dashboard-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  background: rgba(6, 6, 8, 0.88);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.dashboard-layout {
+  display: flex;
+  height: 100vh;
+  padding-top: 3rem;
+}
+
+.dashboard-left-panel {
+  width: 320px;
+  min-width: 320px;
+  background: var(--panel);
+  border-right: 1px solid var(--hairline);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.dashboard-map-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.dashboard-map-container {
+  position: relative;
+  height: 500px;
+  min-height: 500px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.nav-section-link {
+  color: #B4B4BD;
+  letter-spacing: 0.14em;
+}
+
+.nav-section-link:hover,
+.nav-section-link[data-active='true'] {
+  color: #EDEDEF;
+}
+
+.dashboard-right-panel {
+  width: 340px;
+  min-width: 340px;
+  background: var(--panel);
+  border-left: 1px solid var(--hairline);
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+/* ── Bottom sections ─────────────────────────────────────────────────────── */
+.bottom-sections {
+  border-top: 1px solid var(--hairline);
+  background: var(--panel);
+}
+
+/* ── Sidebar inputs ─────────────────────────────────────────────────────── */
+.sidebar-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem 0.625rem 2.25rem;
+  font-size: 0.75rem;
+  font-family: 'Inter', sans-serif;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  outline: none;
+  color: var(--text);
+  transition: border-color 0.15s ease;
+}
+.sidebar-input:focus {
+  border-color: var(--copper);
+  box-shadow: 0 0 0 1px rgba(176, 141, 87, 0.3);
+}
+.sidebar-input::placeholder {
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.sidebar-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.75rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  color: var(--text);
+}
+
+.sidebar-button {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  background: var(--text);
+  color: var(--canvas);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.sidebar-button:hover {
+  background: #ffffff;
+}
+.sidebar-button:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.sidebar-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #000;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.sidebar-dropdown-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+  transition: background 0.12s ease;
+  color: var(--text);
+}
+.sidebar-dropdown-item:last-child { border-bottom: none; }
+.sidebar-dropdown-item:hover { background: rgba(255,255,255,0.05); }
+
+/* ── Sidebar select (for filter dropdowns) ────────────────────────────────── */
+.sidebar-select-input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 100%;
+  padding: 0.625rem 2rem 0.625rem 0.75rem;
+  font-size: 0.75rem;
+  font-family: 'Inter', sans-serif;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.sidebar-select-input:focus {
+  border-color: var(--copper);
+  box-shadow: 0 0 0 1px rgba(176, 141, 87, 0.3);
+  outline: none;
+}
+.sidebar-select-input option {
+  background: #0A0A0C;
+  color: var(--text);
+}
+
+/* ── Sidebar recent items ────────────────────────────────────────────────── */
+.sidebar-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+  text-align: left;
+  color: var(--text);
+}
+.sidebar-recent-item:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--hairline-strong);
+}
+
+/* ── Sidebar stat cards ─────────────────────────────────────────────────── */
+.sidebar-stat-card {
+  padding: 0.5rem;
+  background: var(--raised);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* ── Advisory panel (below map) ──────────────────────────────────────────── */
+.advisory-panel {
+  background: var(--panel);
+  border-top: 1px solid var(--hairline);
+}
+
+.advisory-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding: 0.3rem 1.5rem 0.3rem 0.5rem;
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.advisory-select:focus {
+  border-color: var(--copper);
+  outline: none;
+}
+.advisory-select option {
+  background: #0A0A0C;
+  color: var(--text);
+}
+
+/* ── Metric panels ──────────────────────────────────────────────────────── */
+.metric-panel {
+  padding: 0.75rem;
+  background: var(--raised);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+}
+
+/* ── Skeleton ────────────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  from { background-position: -400px 0; }
+  to   { background-position: 400px 0; }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* ── Leaflet ─────────────────────────────────────────────────────────────── */
+.leaflet-container {
+  background: #080a0f !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.light-popup .leaflet-popup-content-wrapper {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.light-popup .leaflet-popup-tip {
+  background: var(--panel);
+}
+.light-popup .leaflet-popup-close-button {
+  color: var(--muted);
+}
