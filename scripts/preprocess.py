@@ -1,23 +1,28 @@
 """
 Automated preprocessing: raw IMD + CHIRPS + DEM + ERA5 -> aligned training pairs.
 
-Pipeline (Layer-1 spec v2):
-  A. IMD      : read per-year NetCDFs, select ROI, concatenate, drop duplicate dates
-  B. CHIRPS   : select same ROI+dates (auto-detects monthly HDF5 or GEE GeoTIFFs)
+Pipeline (Layer-1 spec v3, region-aware):
+  A. IMD      : read per-year NetCDFs, select region ROI, concatenate, drop
+                duplicate dates, derive the LAND MASK (IMD is land-only; sea
+                cells are structural NaN and must never enter Y/M/metrics)
+  B. CHIRPS   : select same ROI+dates (auto-detects monthly HDF5 or GEE
+                GeoTIFFs); bilinear to the exact fine grid
   C. DEM      : sanitize, resample SRTM elevation to the working fine grid
-  D. ERA5     : daily T2m/T2mmax/dewpoint (ERA5-Land) + wind (ERA5) sampled at
-                IMD cell centers, bilinearly upsampled to the fine grid
+  D. ERA5     : daily T2m/T2mmax/dewpoint (ERA5-Land) + wind (ERA5) sampled on
+                a 0.5-deg lattice, bilinearly resampled to the fine grid
   E. ALIGN    : date intersection only (no invention); quality checks fail loudly
   F. PAIRS    : X = [imd_rain, dem, era5_t2m, era5_t2m_max, era5_dewp, era5_wind]
-                Y = CHIRPS on the fine grid (5x sub-points per IMD cell)
+                Y = CHIRPS on the fine grid (5x sub-points per IMD cell),
+                restricted to IMD-land cells; M = valid-pixel mask
   G. SPLIT    : strict year-based holdout (train years < val year < test year)
   H. NORM     : rain/elev scale + ERA5 standardization from TRAIN years only
 
 Outputs (data/processed/):
-  X_{train,val,test}.npy   (n, 6, H*5, W*5) float32  [channel order = meta.channels]
-  Y_{train,val,test}.npy   (n, 1, H*5, W*5) float32  (mm/day)
-  M_{train,val,test}.npy   (n, 1, H*5, W*5) float32  (1 = valid CHIRPS pixel)
-  meta.json                provenance, grid, dates, split, normalization, notes
+  X_{train,val,test}.npy   (n, C, H*5, W*5) float32  [channel order = meta.channels]
+  Y_{train,val,test}.npy   (n, 1, H*5, W*5) float32  (mm/day; 0 outside land)
+  M_{train,val,test}.npy   (n, 1, H*5, W*5) float32  (1 = valid CHIRPS land pixel)
+  meta.json                provenance, region, grid, land mask, dates, split,
+                           normalization, notes
 """
 from __future__ import annotations
 
@@ -121,13 +126,19 @@ def load_chirps_tifs(directory: Path):
 
 
 # --------------------------------------------------------------------------
-# DEM ingestion (npz from download_or_export.py or GeoTIFF from GEE)
+# DEM ingestion (region npz from download_or_export.py or GeoTIFF from GEE)
 # --------------------------------------------------------------------------
-def load_dem(roi: dict):
-    npz = config.RAW_DEM / "dem_roi.npz"
+def load_dem(roi: dict, region: str | None = None):
+    """Load the DEM mosaic for a region (falls back to the pilot file)."""
+    tag = region or getattr(config, "REGION_DEFAULT", None)
+    npz = (config.RAW_DEM / f"dem_roi_{tag}.npz") if tag else None
+    legacy = config.RAW_DEM / "dem_roi.npz"
     tif = config.RAW_DEM / "dem_roi.tif"
-    if npz.exists():
+    if npz is not None and npz.exists():
         z = np.load(npz)
+        return z["lat"], z["lon"], z["elev"].astype("float32")
+    if legacy.exists():
+        z = np.load(legacy)
         return z["lat"], z["lon"], z["elev"].astype("float32")
     if tif.exists():
         import tifffile
@@ -136,8 +147,8 @@ def load_dem(roi: dict):
         lon = np.linspace(roi["lon_min"], roi["lon_max"], elev.shape[1])
         return lat, lon, elev
     raise FileNotFoundError(
-        f"No DEM found. Expected {npz} (built by download_or_export.py) "
-        f"or {tif} (from the GEE export).")
+        f"No DEM found. Expected {npz} (built by download_or_export.py for the "
+        f"selected region), {legacy} (pilot ROI) or {tif} (GEE export).")
 
 
 def sanitize_dem(dem_lat, dem_lon, dem_hi):
@@ -200,18 +211,22 @@ def _fill_nearest(field):
 
 
 # --------------------------------------------------------------------------
-# ERA5-Land / ERA5 daily context (from era5_daily.npz built by the downloader)
+# ERA5-Land / ERA5 daily context (from era5_daily_<region>.npz, downloader)
 # --------------------------------------------------------------------------
-def load_era5(start: str, end: str):
+def load_era5(start: str, end: str, region: str | None = None):
     """Load daily ERA5 arrays covering [start, end].
 
     Returns {var: (days, nlat, nlon) float32} with var in
     {t2m_mean, t2m_max, dewp, wind}, plus dates/lat/lon. Values are daily
     aggregates over Asia/Kolkata days computed server-side by Open-Meteo,
-    sampled nearest-neighbour at IMD coarse cell centers.
+    sampled on a 0.5-deg lattice (see download_or_export.era5_sample_points).
     """
-    path = config.RAW_IMD.parent / "era5" / "era5_daily.npz"
-    if not path.exists():
+    tag = region or getattr(config, "REGION_DEFAULT", None)
+    path = (config.RAW_ERA5 / f"era5_daily_{tag}.npz") if tag else None
+    legacy = config.RAW_ERA5 / "era5_daily.npz"
+    if path is None or not path.exists():
+        path = legacy if legacy.exists() else path
+    if path is None or not path.exists():
         return None
     z = np.load(path, allow_pickle=False)
     dates = [str(d) for d in z["dates"]]
@@ -226,6 +241,19 @@ def load_era5(start: str, end: str):
     return {"dates": want, "lat": z["lat"], "lon": z["lon"], **out}
 
 
+def imd_land_mask(imd_rain: np.ndarray, thresh: float = 0.5) -> np.ndarray:
+    """Boolean (H, W) mask of IMD cells that are land.
+
+    IMD 0.25-deg gridded rainfall is land-only: sea cells are missing on every
+    day (structural NaN). A cell counts as land when at least `thresh` of all
+    days have a valid value. The mask restricts Y/M, the per-day quality
+    filter and every downstream metric, so ocean cells can never silently
+    enter training targets or scores.
+    """
+    frac = np.isfinite(imd_rain).mean(axis=0)
+    return frac >= thresh
+
+
 # --------------------------------------------------------------------------
 def parse_split_years(s: str | None):
     if not s:
@@ -238,6 +266,10 @@ def parse_split_years(s: str | None):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--region", default=None,
+                    help="study region from config.REGIONS (default: "
+                         "config.REGION_DEFAULT); individual --lat/--lon "
+                         "flags override it")
     ap.add_argument("--lat-min", type=float, default=None)
     ap.add_argument("--lat-max", type=float, default=None)
     ap.add_argument("--lon-min", type=float, default=None)
@@ -245,17 +277,19 @@ def main():
     ap.add_argument("--start", default=config.START_DATE_DEFAULT)
     ap.add_argument("--end", default=config.END_DATE_DEFAULT)
     ap.add_argument("--split-years", default=None,
-                    help="train|val|test year lists, e.g. '2019,2020|2021|2022'")
+                    help="train|val|test year lists, e.g. '2018,2019,2020|2021|2022'")
     ap.add_argument("--split", default=None,
                     help="legacy fraction split 0.7,0.15,0.15 (overrides years)")
     ap.add_argument("--era5-mode", default="strict", choices=["strict", "optional"],
                     help="strict: fail if any aligned date lacks ERA5; "
                          "optional: drop dates lacking ERA5 (ablation fallback)")
     args = ap.parse_args()
+    region = args.region or config.REGION_DEFAULT
     roi = config.clip_roi(vars(args))
     roi = {**roi, "start_date": args.start, "end_date": args.end}
     split_years = parse_split_years(args.split_years)
 
+    print(f"Region: {region}")
     print(f"ROI: {roi}")
     print(f"Split years: {split_years}")
 
@@ -293,6 +327,13 @@ def main():
     check_dates([str(d) for d in imd["dates"]], "IMD")
     check_coords(imd["lat"], imd["lon"], "IMD")
 
+    # ---- LAND MASK (IMD is land-only; sea cells are structural NaN) ----
+    land = imd_land_mask(imd["rain"])
+    print(f"[land] IMD land cells: {int(land.sum())}/{land.size} "
+          f"({100 * land.mean():.1f}% of the box); "
+          f"{int((~land).sum())} sea/edge cells excluded from Y/M/metrics")
+    check(land.sum() >= 100, "land mask too small - check the ROI (all sea?)")
+
     # ---------------- B. CHIRPS ----------------
     chirps = None
     try:
@@ -315,7 +356,8 @@ def main():
               "trying GEE GeoTIFF exports ...")
     if chirps is None:
         chirps = load_chirps_tifs(config.RAW_CHIRPS)
-    check_coords(chirps["lat"], chirps["lon"], "CHIRPS")
+    if chirps["lat"] is not None:
+        check_coords(chirps["lat"], chirps["lon"], "CHIRPS")
     check_rain(chirps["rain"], "CHIRPS")
     print(f"[chirps] rain min={np.nanmin(chirps['rain']):.1f} "
           f"max={np.nanmax(chirps['rain']):.1f} mm, grid {chirps['rain'].shape[1:]}")
@@ -333,14 +375,15 @@ def main():
     ch_r = np.stack([chirps["rain"][ch_dates.index(d)] for d in common])
 
     # ---------------- C. DEM ----------------
-    dem_lat, dem_lon, dem_hi = sanitize_dem(*load_dem(roi))
+    dem_lat, dem_lon, dem_hi = sanitize_dem(*load_dem(roi, region))
     check_dem(dem_hi)
 
     # ---------------- grids + channels ----------------
     fine_lat, fine_lon = fine_grid(imd["lat"], imd["lon"], config.FINE_SUB)
     check_coords(fine_lat, fine_lon, "fine grid")
 
-    # dem on fine grid (documented: bilinear from 30 m source, weights clamped)
+    # dem on fine grid (documented: bilinear from the SRTM mosaic, weights
+    # clamped); DEM is real land elevation everywhere incl. the sea margin
     dem_fine = resample_to_grid(dem_lat, dem_lon, dem_hi,
                                 fine_lat, fine_lon).astype("float32")
 
@@ -352,21 +395,67 @@ def main():
     # IMD -> fine grid (bilinear; also channel 0 and the bilinear baseline)
     imd_fine = np.stack([bilinear_upsample(imd_r[i], config.FINE_SUB)
                          for i in range(len(common))])
-    if np.isnan(imd_fine).any():
-        print(f"[warn] {np.isnan(imd_fine).mean()*100:.2f}% of upsampled IMD "
-              "pixels missing (ocean/edge cells) -> imputed 0 mm")
+
+    # land_fine[i, j] = land[i // 5, j // 5]: the fine grid tiles each coarse
+    # cell exactly, so the coarse land mask maps 1:1 onto fine pixels.
+    land_fine = np.repeat(np.repeat(land, config.FINE_SUB, axis=0),
+                          config.FINE_SUB, axis=1)
+
+    # TARGET validity: a fine pixel enters Y/M iff it is IMD-land AND CHIRPS
+    # provides a value on EVERY aligned day. Coastal pixels within one CHIRPS
+    # cell of CHIRPS-ocean are structurally missing (bilinear stencil touches
+    # sea NaN) - they are excluded, never imputed, so Y holds only real
+    # reference values. Sea fine cells are excluded for the same reason as in
+    # the pilot: IMD has no value there, so the coarse input would be a
+    # filled 0.
+    y_valid = ~(np.isnan(ch_fine).any(axis=0)) & land_fine
+    n_excl = int((land_fine & ~y_valid).sum())
+    print(f"[land] target-valid fine pixels: {int(y_valid.sum())}/"
+          f"{int(land_fine.sum())} land pixels "
+          f"({100 * n_excl / max(land_fine.sum(), 1):.1f}% coastal/sea strip "
+          "excluded from Y/M)")
+    check(int(y_valid.sum()) >= 5000,
+          f"only {int(y_valid.sum())} target-valid pixels - ROI mis-set?")
+    ch_fine = np.where(y_valid[None, :, :], ch_fine, np.nan)
+
+    # per-day quality filter: IMD missingness on all land pixels, CHIRPS
+    # missingness on target-valid pixels (0 by construction there)
+    def bad_frac(arr, mask):
+        a = arr[:, mask]
+        return np.isnan(a).reshape(len(a), -1).mean(axis=1)
+
+    nan_imd_day = bad_frac(imd_fine, land_fine)
+    nan_ch_day = bad_frac(ch_fine, y_valid)
+    keep = (nan_imd_day <= config.MISSING_TOL) & (nan_ch_day <= config.MISSING_TOL)
+    if int((~keep).sum()):
+        print(f"[quality] dropping {int((~keep).sum())}/{len(common)} samples "
+              f"with >{config.MISSING_TOL * 100:.0f}% missing land pixels")
+    dates_ok = [common[i] for i in range(len(common)) if keep[i]]
+    imd_fine, ch_fine = imd_fine[keep], ch_fine[keep]
+    check(len(dates_ok) >= 30, f"only {len(dates_ok)} valid samples after the "
+          "quality filter; widen the date range/ROI")
+
+    # remaining NaNs in the INPUT channel are structural (sea/edge bleed):
+    # impute 0 mm, exactly like the pilot pipeline, and document it
+    n_imputed = int(np.isnan(imd_fine).sum())
+    if n_imputed:
+        print(f"[warn] {n_imputed / imd_fine.size * 100:.2f}% of upsampled IMD "
+              "pixels missing (ocean/edge cells) -> imputed 0 mm "
+              "(Y/M/metrics never use those cells)")
+    imd_fine = np.nan_to_num(imd_fine, nan=0.0)
 
     # ---------------- D. ERA5 channels ----------------
-    era5 = load_era5(args.start, args.end)
+    era5 = load_era5(args.start, args.end, region)
     era5_fine = {}
+    common_e = common[keep]
     if era5 is not None:
         e_dates = era5["dates"]
         have = {d: i for i, d in enumerate(e_dates)}
-        missing_era5 = [d for d in common if d not in have]
+        missing_era5 = [d for d in common_e if d not in have]
         if args.era5_mode == "optional":
             # ablation mode: keep dates with ERA5, drop the rest (documented;
             # year-based split integrity is preserved, only n changes)
-            common_e = [d for d in common if d in have]
+            common_e = [d for d in common_e if d in have]
             print(f"[era5] optional mode: {len(missing_era5)} dates lack ERA5 "
                   "-> excluded from the ERA5-stack dataset")
         else:
@@ -374,7 +463,6 @@ def main():
                   f"ERA5 missing {len(missing_era5)} of the aligned dates "
                   f"(e.g. {missing_era5[:3]}) - re-run download_or_export.py "
                   "with the same start/end, or pass --era5-mode optional")
-            common_e = common
         # ERA5 is sampled on a 0.5-deg lattice (+margin); bilinearly resample
         # each daily field directly onto the fine grid (clamped weights ->
         # constant extrapolation at the edges)
@@ -385,15 +473,18 @@ def main():
         for var in ("t2m_mean", "t2m_max", "dewp", "wind"):
             daily = era5[var][[have[d] for d in common_e]].copy()  # (n,nlat,nlon)
             nan_frac = float(np.isnan(daily).mean())
-            if nan_frac > 0.5:
-                # incomplete year cache (e.g. wind quota-blocked in some years):
-                # unusable for training -> skip the channel, never impute it
-                print(f"[era5] WARNING: {var} is {nan_frac*100:.0f}% missing "
+            day_ok = np.isfinite(daily).any(axis=(1, 2))
+            if nan_frac > 0.5 or not bool(day_ok.all()):
+                # incomplete year cache (e.g. a model's request quota-blocked
+                # in some year): unusable for training -> skip the channel,
+                # never impute it (era5_wind is not in CHANNELS_ALL anyway)
+                print(f"[era5] WARNING: {var} is {nan_frac * 100:.0f}% missing "
+                      f"with {int((~day_ok).sum())} fully-missing days "
                       "(incomplete year cache) -> channel skipped")
                 continue
             # ERA5-Land is land-only: sea points on the sampling margin are
-            # structurally missing (<= ~14% here). Documented fill = nearest
-            # valid value per day, so interior gradients are untouched.
+            # structurally missing. Documented fill = nearest valid value per
+            # day, so interior gradients are untouched.
             for i in range(len(daily)):
                 f = daily[i]
                 if np.isnan(f).any():
@@ -409,18 +500,19 @@ def main():
             filled[var] = daily
         # quality checks on the fields that actually enter the pipeline
         # (post sea-fill; the raw sea NaNs are structural and documented)
-        check_era5(filled, common_e)
+        check_era5(filled, list(common_e))
         print(f"[era5] channels ready on fine grid: {list(era5_fine)}")
     else:
         print("[era5] not available -> building 2-channel dataset "
               "(imd_rain, dem) fallback")
 
-    if era5_fine and len(common_e) != len(common):
+    if era5_fine and len(common_e) != len(dates_ok):
         # ERA5 optional mode dropped some dates -> restrict the whole dataset
         check(len(common_e) >= 30, f"only {len(common_e)} dates have ERA5; "
               "too few for an ERA5-stack ablation - widen the window")
-        cmask = np.array([d in set(common_e) for d in common])
-        common, imd_fine, ch_fine = common[cmask], imd_fine[cmask], ch_fine[cmask]
+        cmask = np.array([d in set(common_e) for d in dates_ok])
+        dates_ok = [dates_ok[i] for i in range(len(dates_ok)) if cmask[i]]
+        imd_fine, ch_fine = imd_fine[cmask], ch_fine[cmask]
 
     # ---------------- coherence check ----------------
     ch_coarse = aggregate_to_coarse(ch_fine, config.FINE_SUB)
@@ -428,24 +520,9 @@ def main():
     a, b = imd_coarse.ravel(), ch_coarse.ravel()
     okm = np.isfinite(a) & np.isfinite(b)
     corr = np.corrcoef(a[okm], b[okm])[0, 1] if okm.sum() > 10 else float("nan")
-    print(f"[check] IMD vs CHIRPS (coarse-mean, all days): corr={corr:.3f} "
-          f"mean IMD={np.nanmean(imd_coarse):.2f} mean CHIRPS={np.nanmean(ch_coarse):.2f}")
-
-    # ---------------- quality filter ----------------
-    def bad_frac(arr):
-        return np.isnan(arr).reshape(len(arr), -1).mean(axis=1)
-
-    keep = (bad_frac(imd_fine) <= config.MISSING_TOL) & \
-           (bad_frac(ch_fine) <= config.MISSING_TOL)
-    if int((~keep).sum()):
-        print(f"[quality] dropping {int((~keep).sum())}/{len(common)} samples "
-              f"with >{config.MISSING_TOL*100:.0f}% missing pixels")
-    dates_ok = [common[i] for i in range(len(common)) if keep[i]]
-    imd_fine, ch_fine = imd_fine[keep], ch_fine[keep]
-    for k in era5_fine:
-        era5_fine[k] = era5_fine[k][keep]
-    check(len(dates_ok) >= 30, f"only {len(dates_ok)} valid samples after the "
-          "quality filter; widen the date range/ROI")
+    print(f"[check] IMD vs CHIRPS (coarse-mean, land cells, all days): "
+          f"corr={corr:.3f} mean IMD={np.nanmean(imd_coarse):.2f} "
+          f"mean CHIRPS={np.nanmean(ch_coarse):.2f}")
 
     # ---------------- G. strict year-based split ----------------
     if args.split:
@@ -501,7 +578,7 @@ def main():
             chans.append(np.broadcast_to(dem_fine / elev_scale, imd_fine.shape))
             chan_names.append(name)
         elif name.startswith("era5_"):
-            var = name.replace("era5_", "", 1).replace("t2m", "t2m", 1)
+            var = name.replace("era5_", "", 1)
             key = {"t2m": "t2m_mean"}.get(var, var)
             if key not in era5_fine:
                 continue
@@ -522,8 +599,11 @@ def main():
         np.save(config.PROCESSED / f"M_{k}.npy", M_all[idx[k]])
 
     # ---------------- provenance ----------------
-    era5_path = config.RAW_IMD.parent / "era5" / "era5_daily.npz"
+    era5_path = (config.RAW_ERA5 / f"era5_daily_{region}.npz")
+    if not era5_path.exists():
+        era5_path = config.RAW_ERA5 / "era5_daily.npz"
     meta = {
+        "region": region,
         "roi": {k: roi[k] for k in ("lat_min", "lat_max", "lon_min", "lon_max")},
         "start_date": args.start, "end_date": args.end,
         "dates": dates_ok,
@@ -533,6 +613,33 @@ def main():
                   for k in ("train", "val", "test")},
         "split_description": split_desc,
         "channels": chan_names,
+        "channel_semantics": "X = stacked input channels on the fine grid "
+                             "(imd_rain = bilinear-upsampled IMD, missing->0; "
+                             "dem = resampled elevation; era5_* = daily "
+                             "aggregates, sea-filled). Y = CHIRPS daily "
+                             "rainfall on the same fine grid restricted to "
+                             "IMD-land cells; M = 1 where Y is a valid land "
+                             "pixel.",
+        "land_mask": {
+            "method": "IMD 0.25-deg cell is land iff >=50% of all aligned "
+                      "days have a valid (non-missing) rainfall value",
+            "coarse_shape": [int(land.shape[0]), int(land.shape[1])],
+            "n_land_cells": int(land.sum()),
+            "n_sea_cells": int((~land).sum()),
+            "land_fraction": round(float(land.mean()), 4),
+            "n_target_valid_fine_cells": int(y_valid.sum()),
+            "target_validity": "fine pixel enters Y/M iff IMD-land AND CHIRPS "
+                               "valid on every aligned day (coastal strip "
+                               "within one CHIRPS cell of CHIRPS-ocean is "
+                               "structurally missing -> excluded, not imputed)",
+            "applied_to": ["Y", "M", "per-day quality filter",
+                           "coherence corr", "all downstream metrics"],
+            "note": "IMD is land-only; sea cells are structural NaN. X "
+                    "channels keep filled values over sea (IMD->0, DEM real, "
+                    "ERA5 sea-filled) so convolutions stay finite, but no "
+                    "sample day, target pixel or metric ever uses sea or "
+                    "non-valid coastal cells.",
+        },
         "grid": {"imd_lat": imd["lat"].tolist(), "imd_lon": imd["lon"].tolist(),
                  "fine_lat": fine_lat.tolist(), "fine_lon": fine_lon.tolist(),
                  "fine_sub": config.FINE_SUB,
@@ -550,10 +657,12 @@ def main():
                               "staggered half a cell vs our area-tiling grid, so "
                               "Y is a half-cell bilinear sample of CHIRPS "
                               "(identical for baseline and model -> fair)",
-            "dem_to_fine": "bilinear from ~38 m/px SRTM terrarium mosaic; "
-                           "sea/glitch pixels sanitized to 0 m",
-            "era5_to_fine": "nearest-neighbour sample at IMD cell centers at "
-                            "download, then bilinear upsample with IMD to fine",
+            "dem_to_fine": "bilinear from the SRTM terrarium mosaic (zoom 11 "
+                           "pilot / zoom 10 deccan, ~76 m/px); sea/glitch "
+                           "pixels sanitized to 0 m",
+            "era5_to_fine": "sampled on a 0.5-deg lattice at download, then "
+                            "bilinear resample onto the fine grid "
+                            "(clamped-edge weights)",
         },
         "era5_aggregation": "hourly ERA5-Land aggregated to daily mean/max over "
                             "Asia/Kolkata days server-side (Open-Meteo archive "
@@ -566,22 +675,24 @@ def main():
             "chirps": {"files": chirps.get("source_file"),
                        "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p05/by_month/",
                        "units": "mm/day", "version": "v2.0"},
-            "dem": {"file": str(config.RAW_DEM / "dem_roi.npz"),
-                    "source": "SRTM 30 m via AWS Terrarium tiles (Mapzen/Nextzen), zoom 11"},
-            "era5": {"file": str(era5_path) if era5 is not None else None,
-                     "api": config.ERA5_API if era5 is not None else None,
+            "dem": {"file": str(config.RAW_DEM / f"dem_roi_{region}.npz"),
+                    "source": "SRTM 30 m via AWS Terrarium tiles (Mapzen/Nextzen)"},
+            "era5": {"file": str(era5_path),
+                     "api": config.ERA5_API,
                      "variables": list(era5_stats)},
         },
-        "imputation": "missing IMD/CHIRPS pixels set to 0; M_*.npy marks valid "
-                      "CHIRPS pixels for masked loss/metrics",
+        "imputation": "remaining NaN IMD input pixels set to 0 (sea/edge bleed; "
+                      "counted in meta.land_mask notes); missing CHIRPS land "
+                      "pixels set to 0 in Y with M=0 marking them invalid for "
+                      "masked loss/metrics; Y/M are 0/0 over sea by design",
         "target_note": "Y is CHIRPS bilinearly resampled onto the exact 5x "
-                       "IMD-area fine grid. CHIRPS is a REFERENCE product, not "
-                       "ground truth.",
+                       "IMD-area fine grid, restricted to IMD-land cells. "
+                       "CHIRPS is a REFERENCE product, not ground truth.",
         "imd_chirps_coarse_corr": float(corr),
     }
     with open(config.PROCESSED / "meta.json", "w") as f:
         json.dump(meta, f, indent=1)
-    print(f"[done] channels={chan_names}")
+    print(f"[done] region={region} channels={chan_names}")
     for k in ("train", "val", "test"):
         print(f"       {k}: X {X_all[idx[k]].shape}  Y {Y_all[idx[k]].shape}")
     print(f"       wrote X/Y/M_*.npy + meta.json to {config.PROCESSED}")

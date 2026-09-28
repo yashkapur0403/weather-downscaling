@@ -8,4 +8,5 @@ matplotlib>=3.8
 pillow>=10.0
 requests>=2.32
 tifffile>=2024.6
+zarr>=3.0        # windowed (chunked) reads of WorldCover COG tiles in build_aux.py
 torch>=2.2

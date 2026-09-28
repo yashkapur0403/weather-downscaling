@@ -1,0 +1,186 @@
+{
+ "soil": {
+  "n_points": 1890,
+  "batches": 30,
+  "batches_ok": 30,
+  "missing_pct": {
+   "sand": 8.84,
+   "clay": 8.84,
+   "ocd": 8.84,
+   "phh2o": 8.84,
+   "bdod": 9.42
+  },
+  "file": "C:\\Users\\HP\\OneDrive\\Desktop\\SIH 2026\\weather-downscaling\\data\\aux\\soil_soilgrids_deccan.npz"
+ },
+ "lulc": {
+  "n_cells": 47250,
+  "tiles": [
+   "N09E072",
+   "N09E075",
+   "N09E078",
+   "N12E072",
+   "N12E075",
+   "N12E078",
+   "N15E072",
+   "N15E075",
+   "N15E078",
+   "N15E081",
+   "N18E069",
+   "N18E072",
+   "N18E075",
+   "N18E078",
+   "N18E081",
+   "N21E069",
+   "N21E072",
+   "N21E075",
+   "N21E078",
+   "N21E081",
+   "N24E069",
+   "N24E072",
+   "N24E075",
+   "N24E078",
+   "N24E081"
+  ],
+  "coverage_pct": 97.14,
+  "mean_fractions": {
+   "cropland_fraction": 0.5054,
+   "forest_fraction": 0.1982,
+   "water_fraction": 0.0504,
+   "builtup_fraction": 0.0188,
+   "grassland_fraction": 0.1913,
+   "barren_fraction": 0.007
+  },
+  "file": "C:\\Users\\HP\\OneDrive\\Desktop\\SIH 2026\\weather-downscaling\\data\\aux\\lulc_fractions_deccan.npz",
+  "n_nodata_cells": 1349,
+  "nodata_note": "cells whose whole 0.05-deg stencil is WorldCover nodata (class 0, ocean); sea fringe of coastal IMD grid boxes, never valid training targets (M=0)"
+ },
+ "admin": {
+  "n_states": 17,
+  "n_districts": 235,
+  "n_subdistricts": 1201,
+  "n_states_hit": 15,
+  "n_districts_hit": 214,
+  "n_subdistricts_hit": 1123,
+  "pip_agree_frac": "0.68 (200-cell spot check, original build)",
+  "file": "C:\\Users\\HP\\OneDrive\\Desktop\\SIH 2026\\weather-downscaling\\data\\aux\\admin\\grid_admin_map_deccan.npz"
+ },
+ "ndvi": {
+  "months": [
+   "2018-06",
+   "2018-07",
+   "2018-08",
+   "2018-09",
+   "2019-06",
+   "2019-07",
+   "2019-08",
+   "2019-09",
+   "2020-06",
+   "2020-07",
+   "2020-08",
+   "2020-09",
+   "2021-06",
+   "2021-07",
+   "2021-08",
+   "2021-09",
+   "2022-06",
+   "2022-07",
+   "2022-08",
+   "2022-09"
+  ],
+  "n_months": 20,
+  "missing_pct": 8.04,
+  "range": [
+   -0.064,
+   0.845
+  ],
+  "valid_frac_per_month": [
+   [
+    "2018-06",
+    0.7671
+   ],
+   [
+    "2018-07",
+    0.7721
+   ],
+   [
+    "2018-08",
+    0.7763
+   ],
+   [
+    "2018-09",
+    0.7757
+   ],
+   [
+    "2019-06",
+    0.7763
+   ],
+   [
+    "2019-07",
+    0.771
+   ],
+   [
+    "2019-08",
+    0.7741
+   ],
+   [
+    "2019-09",
+    0.7661
+   ],
+   [
+    "2020-06",
+    0.7736
+   ],
+   [
+    "2020-07",
+    0.7734
+   ],
+   [
+    "2020-08",
+    0.7733
+   ],
+   [
+    "2020-09",
+    0.771
+   ],
+   [
+    "2021-06",
+    0.7756
+   ],
+   [
+    "2021-07",
+    0.7726
+   ],
+   [
+    "2021-08",
+    0.7756
+   ],
+   [
+    "2021-09",
+    0.7739
+   ],
+   [
+    "2022-06",
+    0.7745
+   ],
+   [
+    "2022-07",
+    0.7655
+   ],
+   [
+    "2022-08",
+    0.777
+   ],
+   [
+    "2022-09",
+    0.7766
+   ]
+  ],
+  "file": "C:\\Users\\HP\\OneDrive\\Desktop\\SIH 2026\\weather-downscaling\\data\\aux\\ndvi_monthly_deccan.npz"
+ },
+ "soilmoisture": {
+  "status": "OPTIONAL / PENDING - quota-blocked",
+  "reason": "free Open-Meteo DAILY request limit exhausted by the wind repair; builder is per-(batch,year) cached and resumable, no incomplete file written",
+  "resume_command": "python scripts/build_aux.py --region deccan --skip-admin --skip-soil --skip-ndvi --skip-lulc",
+  "file_when_done": "data/aux/soilmoisture_daily_deccan.npz"
+ }
+}

@@ -37,16 +37,21 @@ TERRARIUM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}
 # Note: ERA5-Land has no 10m wind -> wind comes from ERA5 (0.25 deg).
 
 
-def era5_sample_points(roi: dict, step_deg: float = 0.5):
-    """Sampling grid for ERA5 context on a 0.5-deg lattice (+1-cell margin).
+def era5_sample_points(roi: dict, step_deg: float | None = None):
+    """Sampling grid for ERA5 context on a degree lattice (+1-cell margin).
 
-    0.5 deg (not the native 0.25/0.1) because the free Open-Meteo archive API
-    rations request weight by (locations x hours x variables); temperature,
-    dewpoint and wind are smooth fields, so a 0.5-deg sampling preserves their
-    large-scale signal while keeping 4 years of data within the quota.
-    Documented in meta.json 'resampling_operations' and 'era5_aggregation'.
+    The step comes from config.ERA5_STEP_DEG[region] (1.0 deg for deccan,
+    0.5 deg for the pilot) because the free Open-Meteo archive API rations
+    request weight by (locations x days); temperature, dewpoint and wind
+    daily aggregates are smooth synoptic fields, so a coarser lattice keeps
+    their large-scale signal while staying inside the quota. Coordinates are
+    snapped to exact step multiples so the returned lattice is clean (no
+    float drift) and reproducible across runs.
     """
     import numpy as np
+    if step_deg is None:
+        step_deg = float(getattr(config, "ERA5_STEP_DEG", {}).get(
+            getattr(config, "REGION_DEFAULT", ""), 0.5))
     la0 = np.floor((roi["lat_min"] - step_deg) / step_deg) * step_deg
     lo0 = np.floor((roi["lon_min"] - step_deg) / step_deg) * step_deg
     lats = np.arange(la0, roi["lat_max"] + step_deg, step_deg)
@@ -55,38 +60,87 @@ def era5_sample_points(roi: dict, step_deg: float = 0.5):
             for la in lats for lo in lons]
 
 
-def fetch_era5(roi: dict, start: str, end: str) -> Path | None:
-    """Fetch daily ERA5-Land/ERA5 context, one request per model per year.
+def era5_year_windows(start: str, end: str, max_days: int = 123,
+                      monsoon_clip: bool | None = None):
+    """Per-year fetch windows of at most max_days days inside [start, end].
 
-    The free Open-Meteo archive API enforces an hourly request/weight budget,
-    so results are cached PER YEAR (era5_year_<Y>.npz). Each re-run skips
-    cached years and retries only the missing ones; holdout years (test, then
-    val) are fetched first so a partial fetch is still scientifically useful.
+    The free Open-Meteo archive API rations request weight by
+    (locations x days), so each request is bounded. With monsoon_clip (the
+    default: True when start/end equal the study defaults) each year is
+    clipped to config.MONSOON_START..MONSOON_END (Jun 1 - Sep 30 = 122 days,
+    the study design) so quota is not spent on days the pipeline never uses;
+    custom ranges are fetched in full (split into consecutive chunks).
+    """
+    from datetime import date as _date, timedelta as _td
+    if monsoon_clip is None:
+        monsoon_clip = (start == config.START_DATE_DEFAULT and
+                        end == config.END_DATE_DEFAULT)
+    ms = (int(config.MONSOON_START[1:3]), int(config.MONSOON_START[4:6]))
+    me = (int(config.MONSOON_END[1:3]), int(config.MONSOON_END[4:6]))
+    d0 = _date.fromisoformat(start)
+    d1 = _date.fromisoformat(end)
+    out = {}
+    y = d0.year
+    while y <= d1.year:
+        a = max(d0, _date(y, 1, 1))
+        b = min(d1, _date(y, 12, 31))
+        if monsoon_clip:
+            a = max(a, _date(y, ms[0], ms[1]))
+            b = min(b, _date(y, me[0], me[1]))
+        chunks = []
+        if a <= b:
+            s = a
+            while s <= b:
+                e = min(b, s + _td(days=max_days - 1))
+                chunks.append((s.isoformat(), e.isoformat()))
+                s = e + _td(days=1)
+        out[y] = chunks
+        y += 1
+    return out
+
+
+def fetch_era5(roi: dict, start: str, end: str,
+               region: str | None = None) -> Path | None:
+    """Fetch daily ERA5-Land/ERA5 context, one request per model per window.
+
+    The free Open-Meteo archive API enforces an hourly request/weight budget
+    (locations x days), so: windows are capped at ~123 days, the lattice step
+    comes from config.ERA5_STEP_DEG (1.0 deg for deccan), and results are
+    cached PER YEAR AND REGION (era5_year_<Y>_<region>.npz). Each re-run
+    skips cached years and retries only the missing ones; holdout years
+    (test, then val, then train) are fetched first so a partial fetch is
+    still scientifically useful. Sleeps config.ERA5_REQUEST_SLEEP seconds
+    between calls.
 
     temperature_2m_mean/temperature_2m_max/dew_point_2m_mean come from the
     ERA5_LAND model; wind_speed_10m_mean from ERA5 (Land has no 10m wind).
     """
     import time as _time
     import numpy as np
-    out_dir = config.RAW_IMD.parent / "era5"
+    tag = region or config.REGION_DEFAULT
+    step = float(getattr(config, "ERA5_STEP_DEG", {}).get(tag, 0.5))
+    sleep_s = int(getattr(config, "ERA5_REQUEST_SLEEP", 20))
+    out_dir = config.RAW_ERA5
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / "era5_daily.npz"
-    pts = era5_sample_points(roi)
+    out = out_dir / f"era5_daily_{tag}.npz"
+    pts = era5_sample_points(roi, step)
     lats = sorted({p[0] for p in pts})
     lons = sorted({p[1] for p in pts})
-    years_all = list(range(int(start[:4]), int(end[:4]) + 1))
+    windows = era5_year_windows(start, end)
     # fetch order: test years, then val years, then train years
     priority = (config.SPLIT_YEARS["test"] + config.SPLIT_YEARS["val"] +
                 config.SPLIT_YEARS["train"])
-    years = [y for y in priority if y in years_all]
-    print(f"[era5] target {len(pts)} points x years {years} "
-          f"(holdout years first); per-year caching in {out_dir}")
+    years = [y for y in priority if y in windows and windows[y]]
+    print(f"[era5:{tag}] {len(pts)} pts on a {step}-deg lattice x years "
+          f"{years} (holdout first; windows {windows[years[0]] if years else '-'}); "
+          f"caching in {out_dir}")
 
-    def request(model: str, daily_vars: str, y: int) -> dict | None:
+    def request(model: str, daily_vars: str, y: int,
+                ws: str, we: str) -> dict | None:
         lat_q = ",".join(str(p[0]) for p in pts)
         lon_q = ",".join(str(p[1]) for p in pts)
         url = (f"{config.ERA5_API}?latitude={lat_q}&longitude={lon_q}"
-               f"&start_date={y}-01-01&end_date={y}-12-31"
+               f"&start_date={ws}&end_date={we}"
                f"&daily={daily_vars}&timezone={config.ERA5_TIMEZONE}"
                f"&models={model}")
         for attempt in range(3):
@@ -120,18 +174,31 @@ def fetch_era5(roi: dict, start: str, end: str) -> Path | None:
 
     got_years = []
     for y in years:
-        cache = out_dir / f"era5_year_{y}.npz"
+        cache = out_dir / f"era5_year_{y}_{tag}.npz"
         if cache.exists():
             print(f"[era5] {cache.name} already cached")
             got_years.append(y)
             continue
-        land = parse("era5_land", config.ERA5_DAILY_VARS["era5_land"],
-                     request("era5_land", config.ERA5_DAILY_VARS["era5_land"], y))
-        _time.sleep(5)
-        wind = parse("era5", config.ERA5_DAILY_VARS["era5"],
-                     request("era5", config.ERA5_DAILY_VARS["era5"], y))
-        if not land:
+        chunks = windows[y]
+        land_all, wind_all = {}, {}
+        ok = True
+        for (ws, we) in chunks:
+            land = parse("era5_land", config.ERA5_DAILY_VARS["era5_land"],
+                         request("era5_land", config.ERA5_DAILY_VARS["era5_land"],
+                                 y, ws, we))
+            _time.sleep(sleep_s)
+            wind = parse("era5", config.ERA5_DAILY_VARS["era5"],
+                         request("era5", config.ERA5_DAILY_VARS["era5"],
+                                 y, ws, we))
+            _time.sleep(sleep_s)
+            if not land:
+                ok = False
+                break
+            land_all.update(land)
+            wind_all.update(wind)
+        if not ok:
             continue
+        land, wind = land_all, wind_all
         # snap requested grid to returned coordinates and assemble dense arrays
         land_keys = sorted(land)
         wind_keys = sorted(wind) if wind else []
@@ -167,18 +234,17 @@ def fetch_era5(roi: dict, start: str, end: str) -> Path | None:
         print(f"[era5] {y} OK -> {cache.name} ({len(dates)} days, "
               f"NaN {nan_frac:.4f})")
         got_years.append(y)
-        _time.sleep(5)
 
     # assemble the combined file from ALL cached years (any run, any order)
     cached = sorted(y for y in years
-                    if (out_dir / f"era5_year_{y}.npz").exists())
+                    if (out_dir / f"era5_year_{y}_{tag}.npz").exists())
     if not cached:
         print("[era5] no years fetched (quota exhausted?) - re-run later; "
               "pipeline continues without ERA5 channels")
         return None
     all_dates, parts = [], {v: [] for v in ("t2m_mean", "t2m_max", "dewp", "wind")}
     for y in cached:
-        z = np.load(out_dir / f"era5_year_{y}.npz")
+        z = np.load(out_dir / f"era5_year_{y}_{tag}.npz")
         all_dates += [str(d) for d in z["dates"]]
         for v in parts:
             parts[v].append(z[v])
@@ -308,16 +374,23 @@ def fetch_chirps_months(year: int, months: list[int]) -> list[Path]:
     return got
 
 
-def fetch_dem(roi: dict) -> Path | None:
-    out = config.RAW_DEM / "dem_roi.npz"
+def fetch_dem(roi: dict, region: str | None = None) -> Path | None:
+    tag = region or config.REGION_DEFAULT
+    out = config.RAW_DEM / f"dem_roi_{tag}.npz"
     if out.exists():
         print(f"[dem] {out} already present")
         return out
+    legacy = config.RAW_DEM / "dem_roi.npz"   # pilot file (western_ghats box)
+    if tag == "western_ghats" and legacy.exists():
+        print(f"[dem] {legacy} already present (pilot ROI)")
+        return legacy
     import numpy as np
     from PIL import Image
     import io as _io
 
-    z = 11  # ~38 m/px at these latitudes, good enough after aggregation
+    # zoom 10 (~76 m/px here) covers the whole deccan box with a manageable
+    # tile count; the pilot (western_ghats) ROI still uses zoom 11 (~38 m/px).
+    z = 11 if tag == "western_ghats" else 10
     # pad by 0.25 deg: the fine grid extends 0.125 deg beyond the ROI on every
     # side (fine cells tile the full coarse-cell area), and tile quantization
     # can shave a bit more
@@ -424,9 +497,13 @@ def main():
     ap.add_argument("--months", default=None,
                     help="comma list of months to download CHIRPS for "
                          "(default: config.CHIRPS_MONTHS = monsoon months)")
+    ap.add_argument("--region", default=None,
+                    help="study region name from config.REGIONS "
+                         "(default: config.REGION_DEFAULT)")
     args = ap.parse_args()
 
     roi = config.clip_roi(vars(args))
+    region = args.region or config.REGION_DEFAULT
     start, end = args.start, args.end
     ym_pairs = month_pairs(start, end)
     years = sorted({y for (y, _) in ym_pairs})
@@ -434,7 +511,7 @@ def main():
                   else [int(m) for m in args.months.split(",")])
     ym_pairs_ch = [(y, m) for (y, m) in ym_pairs if m in months_cfg]
 
-    print(f"ROI: {roi}\nPeriod: {start} .. {end}\n")
+    print(f"Region: {region}\nROI: {roi}\nPeriod: {start} .. {end}\n")
     ok = {"imd": True, "chirps": True, "dem": True, "era5": True}
     if not args.skip_imd:
         for y in years:
@@ -451,11 +528,11 @@ def main():
                 got_any = False
         ok["chirps"] = got_any
     if not args.skip_dem:
-        if fetch_dem(roi) is None:
+        if fetch_dem(roi, region) is None:
             ok["dem"] = False
     if not args.skip_era5:
         try:
-            if fetch_era5(roi, start, end) is None:
+            if fetch_era5(roi, start, end, region) is None:
                 ok["era5"] = False
         except Exception as e:
             print(f"[era5] FAILED: {e}\n      Layer-1 can still run without "

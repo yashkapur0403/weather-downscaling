@@ -91,6 +91,9 @@ def main():
     ap.add_argument("--checkpoint", default=str(config.MODELS / "best_model.pt"))
     ap.add_argument("--output", default=None,
                     help="output PNG (single-day runs only)")
+    ap.add_argument("--region", default=None,
+                    help="study region from config.REGIONS for ROI/DEM/ERA5 "
+                         "defaults (default: config.REGION_DEFAULT)")
     args = ap.parse_args()
 
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
@@ -119,7 +122,8 @@ def main():
                  "or run scripts/download_or_export.py")
     start = args.date or args.start or config.START_DATE_DEFAULT
     end = args.date or args.end or start
-    roi = {**config.ROI_DEFAULT, "start_date": start, "end_date": end}
+    roi = {**config.region_roi(args.region),
+           "start_date": start, "end_date": end}
     imd = load_imd(imd_path, roi)
     print(f"[imd] {len(imd['dates'])} day(s): {imd['dates'][0]} .. {imd['dates'][-1]}")
 
@@ -131,13 +135,13 @@ def main():
         else:
             import tifffile
             delev = tifffile.imread(p).astype("float32")
-            r0 = config.ROI_DEFAULT
+            r0 = config.region_roi(args.region)
             dlat = np.linspace(max(r0["lat_min"] - 0.25, -89),
                                min(r0["lat_max"] + 0.25, 89), delev.shape[0])
             dlon = np.linspace(r0["lon_min"] - 0.25, r0["lon_max"] + 0.25,
                                delev.shape[1])
     else:
-        dlat, dlon, delev = load_dem(roi)
+        dlat, dlon, delev = load_dem(roi, args.region)
     dlat, dlon, delev = sanitize_dem(dlat, dlon, delev)
     fine_lat, fine_lon = fine_grid(imd["lat"], imd["lon"], config.FINE_SUB)
     dem_fine = resample_to_grid(dlat, dlon, delev,
@@ -146,7 +150,12 @@ def main():
     # ERA5 day(s) if any checkpoint channel needs it
     era5_day = None
     if any(c.startswith("era5_") for c in channels):
-        e5 = config.RAW_IMD.parent / "era5" / "era5_daily.npz"
+        e5 = (config.RAW_ERA5 / f"era5_daily_{args.region}.npz"
+              if args.region else config.RAW_ERA5 /
+              f"era5_daily_{config.REGION_DEFAULT}.npz")
+        if not e5.exists():
+            legacy = config.RAW_ERA5 / "era5_daily.npz"
+            e5 = legacy if legacy.exists() else e5
         if not e5.exists():
             sys.exit(f"checkpoint needs ERA5 channels but {e5} is missing - "
                      "run scripts/download_or_export.py, or use a checkpoint "
