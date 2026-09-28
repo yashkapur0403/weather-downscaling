@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: weather-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_CHECKPOINT_PATH=models/best_model.pt
+      - LAYER2_CSV_PATH=outputs/layer2/panchayat_weather.csv
+      - FRONTEND_URL=http://localhost:3000
+    volumes:
+      - ./backend/models:/app/models
+      - ./backend/outputs:/app/outputs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: weather-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  default:
+    name: weather-network

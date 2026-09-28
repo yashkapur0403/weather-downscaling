@@ -1,0 +1,45 @@
+{
+  "layer1_source": "prediction\\infer_2022-07-10.npz",
+  "reconstructed_grid": false,
+  "dates": [
+    "2022-07-10"
+  ],
+  "n_days": 1,
+  "grid": {
+    "n_lat": 85,
+    "n_lon": 85,
+    "lat_min": 12.9,
+    "lat_max": 17.1,
+    "lon_min": 74.15,
+    "lon_max": 78.35,
+    "resolution_deg": 0.05
+  },
+  "region": "Layer 1 ROI",
+  "method": "center",
+  "max_fallback_km": 15.0,
+  "panchayats": {
+    "total": 8236,
+    "mapped": 8236,
+    "direct_or_area": 8236,
+    "nearest_fallback": 0,
+    "unmapped": 0
+  },
+  "fallback_distance_m": {
+    "n": 0,
+    "min": null,
+    "median": null,
+    "max": null
+  },
+  "rainfall_mm": {
+    "min": 0.0,
+    "mean": 7.157606522120436,
+    "max": 93.14386647672569
+  },
+  "map_date": "2022-07-10",
+  "outputs": {
+    "csv": "outputs\\layer2\\panchayat_weather_updated.csv",
+    "summary_csv": "outputs\\layer2\\panchayat_summary.csv",
+    "geojson": "outputs\\layer2\\panchayat_weather.geojson",
+    "map": "outputs\\layer2\\panchayat_weather_map.png"
+  }
+}

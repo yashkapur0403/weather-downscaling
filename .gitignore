@@ -1,3 +1,4 @@
+# --- ML pipeline (root) ------------------------------------------------------
 # Raw downloads and big arrays: reproducible via scripts (HANDOVER.md section 6)
 data/raw/
 data/processed/*.npy
@@ -11,13 +12,17 @@ prediction/
 data/aux_data/admin/*.geojson
 data.zip
 
-# Environments & caches
+# --- Frontend/backend app (weather-downscaling-main/) ------------------------
+.env
+node_modules/
+
+# --- Environments & caches ---------------------------------------------------
 .venv/
 venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# OS / editor
+# --- OS / editor -------------------------------------------------------------
 .DS_Store
 Thumbs.db
