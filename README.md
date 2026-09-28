@@ -18,7 +18,29 @@ as the fine-resolution **reference**.
   numbers in §4 are pilot numbers, not Deccan numbers. `HANDOVER.md` explains
   exactly how to run training next.
 * ❌ Layer-2 (Panchayat mapping, RAG, dashboards) is NOT implemented. The data
-  Layer-2 needs is prepared and documented (§9).
+  Layer-2 needs is prepared and documented (§8).
+
+## 0. File map — what is what, who uses what (read this first)
+
+**New here?** Read this table, then §1–§3 for context, then `HANDOVER.md` for
+step-by-step training/Layer-2 instructions.
+
+| Path | What it is | Who consumes it |
+|---|---|---|
+| `data/processed/X_{train,val,test}.npy` | Model inputs, 5 channels × 285×200 fine grid, normalized (train-only stats) | **training only** (`train.py`) |
+| `data/processed/Y_{train,val,test}.npy` | CHIRPS 0.05° daily rain (mm/day) — the reference target | **training only** |
+| `data/processed/M_{train,val,test}.npy` | 1 = valid land target, 0 = excluded (sea/coastal). Loss & metrics MUST respect it | **training only** |
+| `data/processed/meta.json` | Everything about the dataset: dates, split, grid, channels, land-mask rules, normalization, provenance. Committed so a rebuilt dataset can be diffed against the frozen one | humans + every script |
+| `data/aux_data/admin/grid_admin_map_deccan.npz` | Every land cell → state / district / **block** (committed) | **Layer-2** aggregation |
+| `data/aux_data/soil_soilgrids_deccan.npz` | Sand/clay/OC/pH/bulk density on land coarse cells (committed) | **Layer-3** agro-advisory |
+| `data/aux_data/ndvi_monthly_deccan.npz` | 20 monthly NDVI composites Jun–Sep 2018–2022 (committed) | **Layer-3** agro-advisory |
+| `data/aux_data/lulc_fractions_deccan.npz` | 6 land-cover fractions + dominant class per cell (committed) | **Layer-3** + crop context |
+| `data/aux_data/build_summary_deccan.json` | Machine-readable build stats for every aux layer (incl. soil-moisture PENDING status) | humans / QA |
+| `data/reports/*` | Data dictionary, coverage report, missingness report, verification JSON (committed) | humans — read the dictionary before touching data |
+| `data/raw/` | Source downloads (IMD, CHIRPS, DEM, ERA5, GADM, SoilGrids batches, VIIRS slices, WorldCover tiles). NOT in git — **reproduce with §5 commands**; per-year/batch caches make re-runs cheap | only rebuilds |
+| `scripts/` | One script per pipeline stage (see §6) — every stage is cached/resumable | the pipeline |
+| `models/`, `outputs/`, `prediction/` | Pilot-run checkpoints, metrics, maps; `prediction/*.npz` is the Layer-2 contract format | Layer-2 demo |
+| `HANDOVER.md` | **The ops manual**: exact training commands, evaluation rules, Layer-2 recipes, rebuild instructions, all dataset decisions | the person doing training / Layer-2 (you, probably) |
 
 ---
 
