@@ -9,7 +9,8 @@ import geopandas as gpd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-import config  # noqa: E402
+# Layer 2 runs against the CURRENT (deccan) root pipeline; see layer2_config.py.
+import layer2_config as config  # noqa: E402
 from layer2_panchayat_mapping import (  # noqa: E402
     discover_layer1_path, load_layer1, grid_to_points, load_panchayats,
 )

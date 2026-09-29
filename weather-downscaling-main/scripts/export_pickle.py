@@ -18,7 +18,8 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-import config  # noqa: E402
+# Layer 2 runs against the CURRENT (deccan) root pipeline; see layer2_config.py.
+import layer2_config as config  # noqa: E402
 
 
 def _dump(obj, path: Path) -> Path:

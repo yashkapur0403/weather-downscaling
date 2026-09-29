@@ -186,6 +186,11 @@ re-labeled as pilot) and leave `outputs/metrics/*` as the artifact of record.
 
 ## 4. Layer-2: block & panchayat mapping (how to use the aux data)
 
+Run order: `train.py` → `infer.py` (emits `prediction/infer_*.npz`) →
+`weather-downscaling-main/scripts/layer2_panchayat_mapping.py`. Block
+aggregation (§4.1) works today with no new GIS; the Panchayat tier (§4.2) is
+blocked on one external file (below).
+
 ### 4.1 Cell → block aggregation (works TODAY, no new GIS needed)
 
 GADM L3 subdistricts ARE the block tier. Every land cell already carries its
@@ -225,6 +230,103 @@ assignment) — use the point-based mapping first, polygons for final maps.
 * GADM has no panchayat/village tier, and LGD (lgdirectory.gov.in) publishes
   panchayats **without a bulk API** — that is why they are absent, documented,
   and not silently faked.
+* **The single remaining external Layer-2 input** is
+  `data/raw/administrative/panchayat/LGD_Panchayats.parquet`. The live Layer-2
+  scripts (`weather-downscaling-main/scripts/layer2_panchayat_mapping.py`,
+  `check_blocks.py`, `export_pickle.py`) run against this Deccan config via
+  `layer2_config.py` and exit with a clear error until that file exists (or
+  `--panchayats` / `--input` is supplied).
+
+#### LGD Panchayat acquisition — exact path, source, schema
+
+This is the **only** file Layer 2 needs that is not in the repo; once it is in
+place there is **no remaining blocker** for panchayat-level output.
+
+**Exact path the script reads:**
+
+```
+data/raw/administrative/panchayat/LGD_Panchayats.parquet
+```
+
+Override with `--panchayats <path>` if it lives elsewhere.
+
+**Source — official LGD (the authoritative option).** Gram-Panchayat boundaries
+come from the Local Government Directory, <https://lgdirectory.gov.in>
+("Gram Panchayat" boundaries, state-wise downloads). LGD offers **no bulk,
+all-India export**: acquisition is **state by state** (some states expose only
+GP-wise or block-wise files). Use the official LGD files so the `gpcode` /
+`blklgdcode` codes stay authoritative and stable.
+
+**Fallback boundary sources (NOT equivalent to LGD).** If a state's LGD
+boundaries cannot be obtained, GP polygons from data.gov.in, Datameet, or a
+state GIS portal may be substituted **for geometry only** — they are *not*
+authoritative and their codes do **not** match LGD. Use them knowingly, record
+the substitution, and never present them as LGD.
+
+**Required schema (exact — the script hard-codes these names).** The file must
+be a GeoParquet with a `geometry` column plus these attributes:
+
+| column | meaning | becomes |
+|---|---|---|
+| `gpcode` | Gram-Panchayat code | dissolve key / `panchayat_id` |
+| `gpname` | Gram-Panchayat name | `panchayat_name` |
+| `stname` | state name | `state` (used by `--state`) |
+| `dtname` | district name | `district` |
+| `blklgdcode` | block LGD code | `block_id` |
+| `blkname` | block name | `block_name` (used by `--block`) |
+
+Rows with an empty `gpcode` are dropped; invalid geometries are repaired with
+`buffer(0)`.
+
+**CRS.** A CRS is required: if the file has none set, the script **assumes
+`EPSG:4326`**; otherwise it reprojects to `EPSG:4326`. Write it in `EPSG:4326`
+to be unambiguous.
+
+**The 15 states the current Deccan grid actually covers** (derived from
+`data/aux_data/admin/grid_admin_map_deccan.npz` — this is the exact set; fetch
+only these): **AndhraPradesh, Chhattisgarh, DadraandNagarHaveli, DamanandDiu,
+Goa, Gujarat, Karnataka, Kerala, MadhyaPradesh, Maharashtra, Puducherry,
+Rajasthan, TamilNadu, Telangana, UttarPradesh**.
+(GADM IDs in the same order: IND.2_1, IND.7_1, IND.8_1, IND.9_1, IND.10_1,
+IND.11_1, IND.16_1, IND.17_1, IND.19_1, IND.20_1, IND.27_1, IND.29_1,
+IND.31_1, IND.32_1, IND.34_1.) The admin map stores these names **without
+spaces** (e.g. `DadraandNagarHaveli`, `MadhyaPradesh`, `TamilNadu`) — normalise
+names before name-joining to LGD.
+
+**Convert a source Shapefile / GeoJSON to the required parquet:**
+
+```python
+import geopandas as gpd, pandas as pd, glob
+
+frames = []
+for path in glob.glob("data/raw/administrative/panchayat/*.shp"):  # or *.geojson
+    g = gpd.read_file(path)
+    g = g.rename(columns={            # source names vary; map them to the schema
+        "GP_CODE": "gpcode",  "GP_NAME":  "gpname",
+        "STATE":   "stname",  "DISTRICT": "dtname",
+        "BLK_LGD": "blklgdcode", "BLOCK": "blkname",
+    })
+    frames.append(g[["gpcode", "gpname", "stname", "dtname",
+                     "blklgdcode", "blkname", "geometry"]])
+
+g = pd.concat(frames, ignore_index=True)   # one parquet for the whole grid
+
+if g.crs is None:                # script assumes EPSG:4326 when CRS is unset
+    g = g.set_crs("EPSG:4326")
+else:
+    g = g.to_crs("EPSG:4326")
+
+g = gpd.GeoDataFrame(g, geometry="geometry", crs="EPSG:4326")
+g.to_parquet("data/raw/administrative/panchayat/LGD_Panchayats.parquet")
+```
+
+Then run the unchanged Layer-2 step (writes to the app folder the backend
+reads):
+
+```bash
+.venv/Scripts/python.exe weather-downscaling-main/scripts/layer2_panchayat_mapping.py
+# -> weather-downscaling-main/outputs/layer2/panchayat_weather.csv
+```
 * The admin map is **LGD-joinable by (state, district, block) NAME** — GADM
   IDs are NOT LGD codes. Path: fetch the LGD panchayat layer per state
   (15 states are hit by the grid), intersect each state's block polygons
@@ -284,7 +386,10 @@ Environment notes (Windows Git Bash):
   PIL/scipy/zarr). System python lacks tifffile.
 * Long jobs: run resumable slices (`timeout 560 ... > log 2>&1`) and **never
   pipe long-running jobs to `head`/`tail`** (SIGPIPE silently kills them).
-* `data.zip` (~1.7 GB) at the repo root is an archived raw snapshot — leave it.
+* `data.zip` (~929 MiB) at the repo root is the **current Deccan** model-ready
+  archive (`data/processed/`: X/Y/M_{train,val,test}.npy + meta.json; CRC and
+  shapes verified). The old Western-Ghats **pilot** archive is kept separately
+  as `data_pilot_westernghats_LEGACY.zip` (~1.7 GB) — do not delete either.
 * The pilot's `models/*.pt` and `outputs/metrics/*` are from the OLD
   Western-Ghats pilot data; they are NOT valid for the deccan arrays and will
   be overwritten by your run (that's fine — record it in the commit message).

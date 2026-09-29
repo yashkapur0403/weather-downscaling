@@ -39,12 +39,16 @@ import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-import config  # noqa: E402
+# Layer 2 runs against the CURRENT (deccan) root pipeline, not the pilot
+# config.py beside this file (kept for reference). See layer2_config.py.
+import layer2_config as config  # noqa: E402
 from grids import fine_grid  # noqa: E402
 
 DEFAULT_PARQUET = config.RAW_PANCHAYAT / "LGD_Panchayats.parquet"
 DEFAULT_OUT = config.OUT_LAYER2
-METRIC_CRS = "EPSG:32643"  # UTM 43N covers the default Western Ghats ROI
+# UTM 43N covered the pilot ROI; the deccan ROI spans UTM 42N-44N (area method
+# is approximate at the zone edges). Override the CRS here if needed.
+METRIC_CRS = "EPSG:32643"
 CSV_ATTRS = ["state", "district", "block_id", "block_name",
              "panchayat_id", "panchayat_name"]
 

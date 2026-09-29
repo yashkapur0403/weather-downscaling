@@ -11,6 +11,7 @@ prediction/
 # The 12 MB admin geojson master layer is regenerable from GADM zips -> ignored
 data/aux_data/admin/*.geojson
 data.zip
+data_pilot_westernghats_LEGACY.zip
 
 # --- Frontend/backend app (weather-downscaling-main/) ------------------------
 .env

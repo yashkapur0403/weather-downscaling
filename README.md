@@ -17,8 +17,12 @@ as the fine-resolution **reference**.
 * ❌ **Model training/evaluation on the Deccan dataset is NOT done yet.** The
   numbers in §4 are pilot numbers, not Deccan numbers. `HANDOVER.md` explains
   exactly how to run training next.
-* ❌ Layer-2 (Panchayat mapping, RAG, dashboards) is NOT implemented. The data
-  Layer-2 needs is prepared and documented (§8).
+* 🔶 Layer-2 **plumbing exists and is wired to this Deccan config** (block
+  aggregation works today; the Panchayat scripts live in
+  `weather-downscaling-main/scripts/`). It is blocked on exactly one external
+  input — the LGD panchayat polygons
+  `data/raw/administrative/panchayat/LGD_Panchayats.parquet` (§8, `HANDOVER.md`
+  §4.2). RAG / dashboards are not built.
 
 ## 0. File map — what is what, who uses what (read this first)
 
@@ -38,7 +42,9 @@ step-by-step training/Layer-2 instructions.
 | `data/aux_data/build_summary_deccan.json` | Machine-readable build stats for every aux layer (incl. soil-moisture PENDING status) | humans / QA |
 | `data/reports/*` | Data dictionary, coverage report, missingness report, verification JSON (committed) | humans — read the dictionary before touching data |
 | `data/raw/` | Source downloads (IMD, CHIRPS, DEM, ERA5, GADM, SoilGrids batches, VIIRS slices, WorldCover tiles). NOT in git — **reproduce with §5 commands**; per-year/batch caches make re-runs cheap | only rebuilds |
-| `scripts/` | One script per pipeline stage (see §6) — every stage is cached/resumable | the pipeline |
+| `scripts/` | **ACTIVE pipeline (Deccan)**: one script per stage (see §6) — every stage is cached/resumable | the pipeline |
+| `weather-downscaling-main/` | The app (backend + frontend). Its `scripts/` are the **legacy Western-Ghats PILOT** snapshot — EXCEPT 3 live Layer-2 scripts (`layer2_panchayat_mapping.py`, `check_blocks.py`, `export_pickle.py`) wired to the Deccan config via `layer2_config.py` | app + Layer-2 |
+| `data.zip` | Current **Deccan** model-ready archive (`data/processed/`, ~929 MiB; CRC + shapes verified). The old pilot archive is kept as `data_pilot_westernghats_LEGACY.zip` (~1.7 GB) | transfer / offline rebuild |
 | `models/`, `outputs/`, `prediction/` | Pilot-run checkpoints, metrics, maps; `prediction/*.npz` is the Layer-2 contract format | Layer-2 demo |
 | `HANDOVER.md` | **The ops manual**: exact training commands, evaluation rules, Layer-2 recipes, rebuild instructions, all dataset decisions | the person doing training / Layer-2 (you, probably) |
 
@@ -178,7 +184,7 @@ weather-downscaling/
 ├── data/
 │   ├── raw/{imd,chirps,dem,era5,soil,vegetation,lulc,admin}/  # cached downloads
 │   ├── processed/          # X/Y/M_{train,val,test}.npy + meta.json  (MODEL INPUT)
-│   ├── aux/                # admin/, soil_soilgrids_*, ndvi_monthly_*, lulc_fractions_*, build_summary_*.json
+│   ├── aux_data/           # admin/, soil_soilgrids_*, ndvi_monthly_*, lulc_fractions_*, build_summary_*.json
 │   └── reports/            # data dictionary, coverage, missingness, verify_dataset JSON
 ├── models/                 # checkpoints + histories (pilot only, so far)
 ├── scripts/
@@ -191,6 +197,9 @@ weather-downscaling/
 │   ├── verify_dataset.py   # end-to-end dataset QA (loud, exit-code)
 │   ├── train.py / ablation.py / evaluate.py / infer.py
 ├── outputs/{maps,metrics,figures}/   # pilot run outputs
+├── data.zip                          # current Deccan archive (data/processed/, ~929 MiB)
+├── data_pilot_westernghats_LEGACY.zip # old Western-Ghats pilot archive (~1.7 GB, kept separate)
+├── weather-downscaling-main/         # app; scripts/ = legacy pilot + the 3 live Layer-2 scripts
 ├── prediction/             # machine-readable Layer-2 contract output
 ├── HANDOVER.md             # how to train on this dataset + Layer-2 usage
 └── README.md
@@ -271,6 +280,28 @@ this direct:
   bulk API. The ID schema in the admin map is LGD-joinable: fetch the LGD
   panchayat layer for the states of interest, intersect block polygons with
   panchayat polygons once, and every cell inherits its panchayat the same way.
+  **This is the ONLY remaining external Layer-2 input**: the mapping expects
+  `data/raw/administrative/panchayat/LGD_Panchayats.parquet` (override with
+  `--panchayats`), and `layer2_panchayat_mapping.py` exits with a clear error
+  until it is present.
+* Pipeline: `train.py` → `infer.py` (emits `prediction/infer_*.npz`) →
+  `weather-downscaling-main/scripts/layer2_panchayat_mapping.py` →
+  `weather-downscaling-main/outputs/layer2/panchayat_weather.csv` (the exact
+  path `backend/app.py` reads).
+
+**LGD Panchayat input (`LGD_Panchayats.parquet`) — exact contract.** Layer-2's
+only external input is a GeoParquet of Gram-Panchayat polygons at
+`data/raw/administrative/panchayat/LGD_Panchayats.parquet`, with a `geometry`
+column plus `gpcode, gpname, stname, dtname, blklgdcode, blkname` (CRS
+`EPSG:4326`; assumed if unset — override the path with `--panchayats`). Source:
+the official LGD (<https://lgdirectory.gov.in>, **state-wise, no bulk API**).
+Non-LGD boundary sets (data.gov.in / Datameet / state GIS) are **fallbacks for
+geometry only — NOT equivalent to LGD**, whose codes are authoritative. The 15
+states the Deccan grid covers (from `data/aux_data/admin/grid_admin_map_deccan.npz`):
+AndhraPradesh, Chhattisgarh, DadraandNagarHaveli, DamanandDiu, Goa, Gujarat,
+Karnataka, Kerala, MadhyaPradesh, Maharashtra, Puducherry, Rajasthan, TamilNadu,
+Telangana, UttarPradesh. Full acquisition + conversion recipe: `HANDOVER.md`
+§4.2.
 * Soil/NDVI/LULC give the agricultural context for advisories (drought
   flags by soil water-holding proxies, vegetation state, dominant land use).
 
