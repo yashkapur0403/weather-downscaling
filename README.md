@@ -43,7 +43,7 @@ step-by-step training/Layer-2 instructions.
 | `data/raw/` | Source downloads (IMD, CHIRPS, DEM, ERA5, GADM, SoilGrids batches, VIIRS slices, WorldCover tiles, LGD panchayats). NOT in git — **reproduce with §5 commands**; per-year/batch caches make re-runs cheap | only rebuilds |
 | `scripts/` | **ACTIVE pipeline (Deccan)**: one script per stage (see §6) — every stage is cached/resumable | the pipeline |
 | `weather-downscaling-main/` | The app (backend + frontend). Its `scripts/` are the **legacy Western-Ghats PILOT** snapshot — EXCEPT 3 live Layer-2 scripts (`layer2_panchayat_mapping.py`, `check_blocks.py`, `export_pickle.py`) wired to the Deccan config via `layer2_config.py` | app + Layer-2 |
-| `data.zip` | Current **Deccan** model-ready archive (`data/processed/`, ~929 MiB; CRC + shapes verified). The old pilot archive is kept as `data_pilot_westernghats_LEGACY.zip` (~1.7 GB) | transfer / offline rebuild |
+| `data.zip` | Current **Deccan** model-ready archive (`data/processed/`, ~929 MiB; CRC + shapes verified). **Not in git** — copy from the shared OneDrive folder and run `unzip data.zip` at the repo root (or rebuild, §5). The old pilot archive is kept as `data_pilot_westernghats_LEGACY.zip` (~1.7 GB) | transfer / offline rebuild |
 | `models/`, `outputs/`, `prediction/` | Pilot-run checkpoints, metrics, maps; `prediction/*.npz` is the Layer-2 contract format | Layer-2 demo |
 | `HANDOVER.md` | **The ops manual**: exact training commands, evaluation rules, Layer-2 recipes, rebuild instructions, all dataset decisions | the person doing training / Layer-2 (you, probably) |
 

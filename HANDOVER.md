@@ -8,6 +8,19 @@ it yet. Everything below is what you need, in the order you need it.
 
 ## 0. TL;DR — your first hour
 
+### Getting the data (a fresh clone has NO data!)
+
+The `.npy` arrays and raw downloads are **not in git** (too big / reproducible):
+
+* **Deccan model-ready arrays:** copy `data.zip` (~929 MiB) from the shared
+  OneDrive folder, then at the repo root run `unzip data.zip` — it restores
+  `data/processed/` (`X/Y/M_{train,val,test}.npy` + `meta.json`). Or rebuild
+  from raw — §6.
+* **Layer-2 panchayat polygons:** `python scripts/fetch_lgd_panchayats.py`.
+
+Already committed (nothing to do): `data/processed/meta.json`, the aux layers
+(`data/aux_data/*.npz`), the reports, all scripts and these docs.
+
 ```bash
 cd weather-downscaling
 # Windows Git Bash: ALWAYS use the venv python (system python lacks tifffile)
