@@ -27,6 +27,19 @@ If `verify_dataset.py` fails, STOP — re-read §6 (rebuilds) before training.
 > Training path was smoke-tested on these exact arrays (2 epochs, CPU,
 > ~8 s, checkpoint reload + `predict_mm` verified) — §2.1. Just run it.
 
+### Layer 2 in three commands (spoon-feed)
+
+```bash
+PY=.venv/Scripts/python.exe
+$PY scripts/fetch_lgd_panchayats.py        # one-off: LGD panchayat polygons (LGD-derived, CC0)
+$PY scripts/infer.py --imd data/raw/imd/ind2022_rfp25.nc --date 2022-07-10   # -> prediction/infer_2022-07-10.npz
+$PY weather-downscaling-main/scripts/layer2_panchayat_mapping.py
+# -> weather-downscaling-main/outputs/layer2/panchayat_weather.csv  (the file backend/app.py reads)
+```
+
+Run `train.py` first (§2) so `infer.py` has a checkpoint; Layer 2 then needs no
+further input.
+
 ---
 
 ## 1. What exists (inventory)
@@ -188,8 +201,8 @@ re-labeled as pilot) and leave `outputs/metrics/*` as the artifact of record.
 
 Run order: `train.py` → `infer.py` (emits `prediction/infer_*.npz`) →
 `weather-downscaling-main/scripts/layer2_panchayat_mapping.py`. Block
-aggregation (§4.1) works today with no new GIS; the Panchayat tier (§4.2) is
-blocked on one external file (below).
+aggregation (§4.1) works today with no new GIS; the Panchayat tier (§4.2) needs
+one external file, now prepared by a single command.
 
 ### 4.1 Cell → block aggregation (works TODAY, no new GIS needed)
 
@@ -225,22 +238,24 @@ the same date). Zonal means with the actual polygons
 identical results (pilot spot-check: 0.68 PIP agreement for nearest-point
 assignment) — use the point-based mapping first, polygons for final maps.
 
-### 4.2 Panchayat tier (the missing piece, and the path to it)
+### 4.2 Panchayat tier — prepared with one command
 
-* GADM has no panchayat/village tier, and LGD (lgdirectory.gov.in) publishes
-  panchayats **without a bulk API** — that is why they are absent, documented,
-  and not silently faked.
-* **The single remaining external Layer-2 input** is
-  `data/raw/administrative/panchayat/LGD_Panchayats.parquet`. The live Layer-2
-  scripts (`weather-downscaling-main/scripts/layer2_panchayat_mapping.py`,
-  `check_blocks.py`, `export_pickle.py`) run against this Deccan config via
-  `layer2_config.py` and exit with a clear error until that file exists (or
-  `--panchayats` / `--input` is supplied).
+* GADM has no panchayat/village tier. The LGD panchayat boundaries Layer 2 needs
+  are now **prepared by a single command** (no manual state-by-state scraping):
 
-#### LGD Panchayat acquisition — exact path, source, schema
+  ```bash
+  python scripts/fetch_lgd_panchayats.py           # ~368 MB download, verifies sha256,
+                                                  # clips to the deccan ROI -> LGD_Panchayats.parquet
+  python scripts/fetch_lgd_panchayats.py --verify  # re-check the local file
+  python scripts/fetch_lgd_panchayats.py --full    # keep all-India instead of clipping
+  ```
 
-This is the **only** file Layer 2 needs that is not in the repo; once it is in
-place there is **no remaining blocker** for panchayat-level output.
+  The live Layer-2 scripts (`weather-downscaling-main/scripts/layer2_panchayat_mapping.py`,
+  `check_blocks.py`, `export_pickle.py`) then run against this Deccan config via
+  `layer2_config.py`; without the file they exit with a clear error (or pass
+  `--panchayats` / `--input`).
+
+#### LGD Panchayat input — exact path, source, schema
 
 **Exact path the script reads:**
 
@@ -250,18 +265,27 @@ data/raw/administrative/panchayat/LGD_Panchayats.parquet
 
 Override with `--panchayats <path>` if it lives elsewhere.
 
-**Source — official LGD (the authoritative option).** Gram-Panchayat boundaries
-come from the Local Government Directory, <https://lgdirectory.gov.in>
-("Gram Panchayat" boundaries, state-wise downloads). LGD offers **no bulk,
-all-India export**: acquisition is **state by state** (some states expose only
-GP-wise or block-wise files). Use the official LGD files so the `gpcode` /
-`blklgdcode` codes stay authoritative and stable.
+**Source (verified).** Release tag **`admin/panchayats`** of
+<https://github.com/yashveeeeeeer/india-geodata> — a CC0 (public-domain)
+GeoParquet aggregating <https://github.com/ramSeraph/indian_admin_boundaries>,
+which sources the **official Local Government Directory** (LGD, Ministry of
+Panchayati Raj) plus ISRO Bhuvan. LGD (<https://lgdirectory.gov.in>) remains the
+upstream authority and publishes panchayats **state-wise with no bulk API**; the
+release above is the convenience distribution of that same data and carries the
+real LGD codes (`gpcode`, `blklgdcode`), so it is the authoritative tier.
 
-**Fallback boundary sources (NOT equivalent to LGD).** If a state's LGD
-boundaries cannot be obtained, GP polygons from data.gov.in, Datameet, or a
-state GIS portal may be substituted **for geometry only** — they are *not*
-authoritative and their codes do **not** match LGD. Use them knowingly, record
-the substitution, and never present them as LGD.
+Verified locally: asset `LGD_panchayats.parquet`, 368,147,580 bytes, sha256
+`d1585c16…6400` (checked by `fetch_lgd_panchayats.py`); 319,287 features /
+226,985 unique Gram Panchayats, CRS `OGC:CRS84` (= EPSG:4326), 99.7% valid
+geometry, all six required columns present with 0 nulls. ~17% of rows carry an
+**empty `gpcode`** (unmapped GPs) — `load_panchayats()` drops those rows
+automatically. The prepared, clipped file is 116,126 features / 87,736 GPs /
+14 states (179 MB, ZSTD), already EPSG:4326.
+
+**Fallback boundary sources (NOT equivalent to LGD).** GP polygons from
+data.gov.in, Datameet, or a state GIS portal are **geometry-only substitutes**:
+they are *not* authoritative and their codes do **not** match LGD. Use them
+knowingly, record the substitution, and never present them as LGD.
 
 **Required schema (exact — the script hard-codes these names).** The file must
 be a GeoParquet with a `geometry` column plus these attributes:

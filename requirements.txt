@@ -10,3 +10,7 @@ requests>=2.32
 tifffile>=2024.6
 zarr>=3.0        # windowed (chunked) reads of WorldCover COG tiles in build_aux.py
 torch>=2.2
+# Layer-2 (panchayat mapping) + the LGD fetch script:
+geopandas>=1.0
+shapely>=2.0
+pyarrow>=15.0

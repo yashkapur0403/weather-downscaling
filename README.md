@@ -17,12 +17,11 @@ as the fine-resolution **reference**.
 * ❌ **Model training/evaluation on the Deccan dataset is NOT done yet.** The
   numbers in §4 are pilot numbers, not Deccan numbers. `HANDOVER.md` explains
   exactly how to run training next.
-* 🔶 Layer-2 **plumbing exists and is wired to this Deccan config** (block
-  aggregation works today; the Panchayat scripts live in
-  `weather-downscaling-main/scripts/`). It is blocked on exactly one external
-  input — the LGD panchayat polygons
-  `data/raw/administrative/panchayat/LGD_Panchayats.parquet` (§8, `HANDOVER.md`
-  §4.2). RAG / dashboards are not built.
+* 🔶 Layer-2 **runs end-to-end on this Deccan config** (block aggregation +
+  Panchayat mapping; the Panchayat scripts live in
+  `weather-downscaling-main/scripts/`). The LGD panchayat polygons are obtained
+  with one command — `python scripts/fetch_lgd_panchayats.py` (§8,
+  `HANDOVER.md` §4.2). RAG / dashboards are not built.
 
 ## 0. File map — what is what, who uses what (read this first)
 
@@ -41,7 +40,7 @@ step-by-step training/Layer-2 instructions.
 | `data/aux_data/lulc_fractions_deccan.npz` | 6 land-cover fractions + dominant class per cell (committed) | **Layer-3** + crop context |
 | `data/aux_data/build_summary_deccan.json` | Machine-readable build stats for every aux layer (incl. soil-moisture PENDING status) | humans / QA |
 | `data/reports/*` | Data dictionary, coverage report, missingness report, verification JSON (committed) | humans — read the dictionary before touching data |
-| `data/raw/` | Source downloads (IMD, CHIRPS, DEM, ERA5, GADM, SoilGrids batches, VIIRS slices, WorldCover tiles). NOT in git — **reproduce with §5 commands**; per-year/batch caches make re-runs cheap | only rebuilds |
+| `data/raw/` | Source downloads (IMD, CHIRPS, DEM, ERA5, GADM, SoilGrids batches, VIIRS slices, WorldCover tiles, LGD panchayats). NOT in git — **reproduce with §5 commands**; per-year/batch caches make re-runs cheap | only rebuilds |
 | `scripts/` | **ACTIVE pipeline (Deccan)**: one script per stage (see §6) — every stage is cached/resumable | the pipeline |
 | `weather-downscaling-main/` | The app (backend + frontend). Its `scripts/` are the **legacy Western-Ghats PILOT** snapshot — EXCEPT 3 live Layer-2 scripts (`layer2_panchayat_mapping.py`, `check_blocks.py`, `export_pickle.py`) wired to the Deccan config via `layer2_config.py` | app + Layer-2 |
 | `data.zip` | Current **Deccan** model-ready archive (`data/processed/`, ~929 MiB; CRC + shapes verified). The old pilot archive is kept as `data_pilot_westernghats_LEGACY.zip` (~1.7 GB) | transfer / offline rebuild |
@@ -157,6 +156,7 @@ python -m venv .venv && .venv/Scripts/python -m pip install -r requirements.txt 
 # --- dataset build (region-aware; default region = deccan) ---
 python scripts/download_or_export.py --region deccan   # IMD + CHIRPS + DEM + ERA5 (resumable, cached per year)
 python scripts/build_aux.py --region deccan            # admin + soil + NDVI + LULC aux layers (each --skip-<name>-able)
+python scripts/fetch_lgd_panchayats.py                 # Layer-2 input: LGD Gram-Panchayat boundaries (~368 MB, CC0)
 python scripts/preprocess.py                           # align, quality-check, split, normalize -> data/processed/
 python scripts/verify_dataset.py                       # end-to-end QA; exits non-zero on any problem
 
@@ -193,6 +193,7 @@ weather-downscaling/
 │   ├── download_or_export.py / inspect_data.py / gee_export.js
 │   ├── preprocess.py       # -> data/processed (model-ready)
 │   ├── build_aux.py        # -> data/aux_data (admin/soil/NDVI/LULC) + reports
+│   ├── fetch_lgd_panchayats.py  # Layer-2 input: LGD panchayat boundaries (CC0)
 │   ├── retry_soil_nan.py   # soil NaN diagnostics (genuine SoilGrids nulls)
 │   ├── verify_dataset.py   # end-to-end dataset QA (loud, exit-code)
 │   ├── train.py / ablation.py / evaluate.py / infer.py
@@ -289,19 +290,25 @@ this direct:
   `weather-downscaling-main/outputs/layer2/panchayat_weather.csv` (the exact
   path `backend/app.py` reads).
 
-**LGD Panchayat input (`LGD_Panchayats.parquet`) — exact contract.** Layer-2's
-only external input is a GeoParquet of Gram-Panchayat polygons at
+**LGD Panchayat input (`LGD_Panchayats.parquet`) — prepared in one command.**
+Layer-2's only external input is a GeoParquet of Gram-Panchayat polygons at
 `data/raw/administrative/panchayat/LGD_Panchayats.parquet`, with a `geometry`
 column plus `gpcode, gpname, stname, dtname, blklgdcode, blkname` (CRS
-`EPSG:4326`; assumed if unset — override the path with `--panchayats`). Source:
-the official LGD (<https://lgdirectory.gov.in>, **state-wise, no bulk API**).
-Non-LGD boundary sets (data.gov.in / Datameet / state GIS) are **fallbacks for
-geometry only — NOT equivalent to LGD**, whose codes are authoritative. The 15
-states the Deccan grid covers (from `data/aux_data/admin/grid_admin_map_deccan.npz`):
-AndhraPradesh, Chhattisgarh, DadraandNagarHaveli, DamanandDiu, Goa, Gujarat,
-Karnataka, Kerala, MadhyaPradesh, Maharashtra, Puducherry, Rajasthan, TamilNadu,
-Telangana, UttarPradesh. Full acquisition + conversion recipe: `HANDOVER.md`
-§4.2.
+`EPSG:4326`; override the path with `--panchayats`). Get or refresh it with:
+
+```bash
+python scripts/fetch_lgd_panchayats.py   # download + sha256 verify + clip to the deccan ROI
+```
+
+It is **LGD-derived** (official Local Government Directory, Ministry of
+Panchayati Raj, bundled in a CC0 public-domain redistribution) and carries real
+LGD codes, so it is the authoritative tier — not a fallback. Non-LGD boundary
+sets (data.gov.in / Datameet / state GIS) remain **geometry-only substitutes and
+are NOT equivalent to LGD**. The 15 states the Deccan grid covers (from
+`data/aux_data/admin/grid_admin_map_deccan.npz`): AndhraPradesh, Chhattisgarh,
+DadraandNagarHaveli, DamanandDiu, Goa, Gujarat, Karnataka, Kerala,
+MadhyaPradesh, Maharashtra, Puducherry, Rajasthan, TamilNadu, Telangana,
+UttarPradesh. Schema, provenance and verification: `HANDOVER.md` §4.2.
 * Soil/NDVI/LULC give the agricultural context for advisories (drought
   flags by soil water-holding proxies, vegetation state, dominant land use).
 
