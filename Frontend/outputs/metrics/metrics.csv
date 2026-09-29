@@ -1,0 +1,25 @@
+split,model,MAE_mm,RMSE_mm,corr
+val,B1 bilinear IMD,8.554,16.325,0.2876
+val,B2 bias-corrected bilinear,12.134,18.068,0.3434
+val,U-Net [best_model],6.933,13.787,0.3457
+test,B1 bilinear IMD,9.603,18.183,0.3850
+test,B2 bias-corrected bilinear,12.753,19.454,0.4272
+test,U-Net [best_model],8.167,16.014,0.4461
+val,B1 bilinear IMD events,>=10mm,prec=0.467,rec=0.366 F1=0.410
+val,B1 bilinear IMD events,>=25mm,prec=0.243,rec=0.215 F1=0.228
+val,B1 bilinear IMD events,>=50mm,prec=0.131,rec=0.144 F1=0.137
+val,B2 bias-corrected bilinear events,>=10mm,prec=0.370,rec=0.751 F1=0.496
+val,B2 bias-corrected bilinear events,>=25mm,prec=0.219,rec=0.411 F1=0.286
+val,B2 bias-corrected bilinear events,>=50mm,prec=0.123,rec=0.234 F1=0.161
+val,U-Net [best_model] events,>=10mm,prec=0.577,rec=0.214 F1=0.312
+val,U-Net [best_model] events,>=25mm,prec=0.448,rec=0.108 F1=0.174
+val,U-Net [best_model] events,>=50mm,prec=0.519,rec=0.012 F1=0.023
+test,B1 bilinear IMD events,>=10mm,prec=0.546,rec=0.423 F1=0.477
+test,B1 bilinear IMD events,>=25mm,prec=0.386,rec=0.308 F1=0.343
+test,B1 bilinear IMD events,>=50mm,prec=0.252,rec=0.219 F1=0.234
+test,B2 bias-corrected bilinear events,>=10mm,prec=0.425,rec=0.764 F1=0.546
+test,B2 bias-corrected bilinear events,>=25mm,prec=0.331,rec=0.499 F1=0.398
+test,B2 bias-corrected bilinear events,>=50mm,prec=0.231,rec=0.328 F1=0.271
+test,U-Net [best_model] events,>=10mm,prec=0.650,rec=0.282 F1=0.393
+test,U-Net [best_model] events,>=25mm,prec=0.598,rec=0.184 F1=0.281
+test,U-Net [best_model] events,>=50mm,prec=0.494,rec=0.007 F1=0.015
