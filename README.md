@@ -59,8 +59,9 @@ step-by-step training/Layer-2 instructions.
 | `data/reports/*` | Data dictionary, coverage report, missingness report, verification JSON (committed) | humans — read the dictionary before touching data |
 | `data/raw/` | Source downloads (IMD, CHIRPS, DEM, ERA5, GADM, SoilGrids batches, VIIRS slices, WorldCover tiles, LGD panchayats). NOT in git — **reproduce with §5 commands**; per-year/batch caches make re-runs cheap | only rebuilds |
 | `scripts/` | **ACTIVE pipeline (Deccan)**: one script per stage (see §6) — every stage is cached/resumable | the pipeline |
-| `backend/` | The FastAPI app (**Layer 3**): data store, rule engine, Groq/Sarvam text, all `/api/*` routes. Serves on port 8000 and reads every other directory in this repo | the web app, judges |
-| `Frontend/` | The Next.js dashboard. Reads the backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`) | the user |
+| `backend/` | The FastAPI app (**Layer 3**, §9): data store, rule engine, Groq/Sarvam text, all `/api/*` routes. Serves on port 8000 and reads every other directory in this repo | the web app, judges |
+| `Frontend/` | The Next.js dashboard (**§9.7**). Reads the backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`) | the user |
+| `requirements.txt`, `prediction/` | Pipeline dependencies (**§5**), and the extra U-Net runs `scripts/infer.py` writes locally (`prediction/infer_*.npz`, gitignored — the backend falls back to these if the served grid is absent) | training / inference |
 | `legacy/old-app-snapshot/` | **Legacy, superseded — archive only.** The teammate's original app snapshot (formerly `weather-downscaling-main/`), merged in early; the app now lives at `backend/` + `Frontend/` at the repo root. Kept because it holds the **only committed copies** of the per-Panchayat `panchayat_weather.geojson` (46 MB) and `layer2_mh/` GeoJSON, the Panchayat CSV/PKL exports and `layer1_model.pkl`. Do not wire it up. The same folder holds the old `legacy/frontend_backend_match.patch` | archive / data recovery |
 | `data.zip` | Current **Deccan** model-ready archive (`data/processed/`, ~929 MiB; CRC + shapes verified). **Not in git** — copy from the shared OneDrive folder and run `unzip data.zip` at the repo root (or rebuild, §5). The old pilot archive is kept as `data_pilot_westernghats_LEGACY.zip` (~1.7 GB) | transfer / offline rebuild |
 | `models/`, `outputs/` | **The Deccan run**: checkpoints A–F + `ensemble.json` (the *deployed* model), the served grid `outputs/prediction_test.npz`, the ablation table, the provenance manifest `layer1_manifest.json` and the Layer-2 products | backend, Layer-2, humans |
@@ -261,7 +262,7 @@ every row at every threshold, so any single number here can be audited.
 * **Tail honesty.** Even deployed, ≥ 100 mm/day events are largely missed (recall
   ≈ 0.005) and cells observed above 100 mm are predicted at ≈ 35 mm. Against this
   reference the model is better than not modelling; it is **not** a reliable
-  extreme-rainfall predictor. See §9.
+  extreme-rainfall predictor. See §10.
 
 ### 4.3 Why these numbers can be trusted
 
@@ -391,6 +392,8 @@ weather-downscaling/
 │   └── check_blocks.py
 ├── backend/                # FastAPI app (Layer 3 advisory + /api/*), port 8000
 ├── Frontend/               # Next.js dashboard, port 3000
+├── prediction/             # extra U-Net runs written by scripts/infer.py (gitignored, local)
+├── requirements.txt        # pipeline deps (backend + Frontend have their own)
 ├── outputs/{maps,metrics,figures,layer2}/  # served grid, ablation + provenance, Layer-2 products
 ├── generate_pred.py        # rebuilds outputs/prediction_test.npz + layer1_manifest.json
 ├── docs/                   # HANDOVER.md + the validation / QA reports
@@ -569,7 +572,169 @@ quietly merged:
 Layer 2 processing is complete and validated. The remaining limitation is
 spatial coverage of source polygons, not an unfinished processing step.
 
-## 9. Limitations
+## 9. Layer 3 — the advisory layer (rules, API, dashboard)
+
+Layer 3 turns one value from Layer 1 into an explained, actionable advisory for a
+named Panchayat, crop and growth stage — and **refuses to answer when it cannot
+verify what it is advising on**. The division of labour is deliberate: a
+deterministic rule engine decides what the advisory says, an LLM may only rephrase
+it, and a guard rejects any rephrase that introduces a number the rules did not
+produce.
+
+### 9.1 One request, end to end
+
+```
+GET /api/advisory?panchayat_id&crop&stage&date
+        |
+        v
+routes_data : store().panchayat_grid_value(id, date)      <- Layer 1, VERIFIED
+        |        outputs/prediction_test.npz read at that Panchayat's OWN polygon
+        |        point (panchayat_index.csv) -> or 409 / 422 with the reason
+        v
+aux_layers  : clay + NDVI + land cover for that same cell  <- data/aux_data/*.npz
+        |
+        v
+advisory.py : 9 deterministic rules -> fired? evaluable? severity, margin to the
+        |      threshold, what would flip it, per-rule farmer advice
+        v
+evaluate()  : risk band + headline + CONFIDENCE (from which inputs arrived)
+        |
+        v
+Groq (optional) rephrases the trace -> faithfulness guard -> else the template
+        |
+        v
+JSON: risk_level, headline, actions, per-rule evidence, aux, verification block
+```
+
+### 9.2 The rule engine — nine rules, every threshold
+
+| Rule | Fires when | Severity → UI band | Data it needs |
+|---|---|---|---|
+| `R1_HEAVY_RAIN` | rainfall ≥ **64.5 mm/day** (IMD's heavy-rain lower bound) | **high** → alert | Layer-1 rainfall |
+| `R1B_SUBSTANTIAL_RAIN` | **24.5** ≤ rainfall < 64.5 | **medium** → warning | Layer-1 rainfall |
+| `R2_IRRIGATION` | rainfall < **3.0 × window_days** **and** soil moisture < the crop's dry level | **medium** → warning (or **low** if soil moisture is missing: a rain-only check, labelled as weaker evidence) | rainfall + soil moisture |
+| `R3_HEAT_STRESS` | tmax ≥ the crop's heat threshold **and** the stage is one of that crop's heat-sensitive stages | **high** → alert | temperature + **a known stage** |
+| `R4_DISEASE` | humidity ≥ **85 %** **and** 22 ≤ temperature ≤ **32 °C** | **medium** → warning | humidity + temperature |
+| `R5_LODGING` | wind ≥ **40 km/h** **and** the crop is tall | **medium** → warning | wind + crop |
+| `R6_VEGETATION` | NDVI < **0.30** (composite for the current month) | **low** → watch, **medium** if rainfall is also low | NDVI (sawn layer) |
+| `R7_SOIL_DRAINAGE` | rainfall ≥ **24.5 mm** **and** clay ≥ **350 g/kg** (poorly drained soil) | **medium** → warning, **high** if rainfall ≥ 64.5 | clay (aux) + rainfall |
+| `R8_LANDCOVER` | dominant land cover is built-up / water / bare, **or** cropland fraction < 0.20 | **low** → watch | land-cover aux |
+
+Per-crop parameters live in `CROP_PARAMS` (`backend/advisory.py`): wheat, rice,
+maize, mustard, cotton, bajra and pulses, each with its heat threshold
+(32–40 °C), its heat-sensitive stages, its dry-soil level, its typical disease and
+whether it is tall. The numbers are **documented placeholders** for the prototype,
+not calibrated agronomy — stated as such in the module.
+
+Severity maps to what the UI shows: `none → info`, `low → watch`, `medium →
+warning`, `high → alert`. The rainfall risk band is shared with the frontend:
+`< 2.5 → no_rain`, `< 10 → light`, `< 25 → moderate`, `< 50 → heavy`, else
+`very_heavy` (both sides use the same cut-points, so a chip cannot disagree with
+the advisory).
+
+### 9.3 What every rule returns — the explainability contract
+
+Not a boolean. Each of the nine rules returns its `fired` flag, an **`evaluable`**
+flag, its `severity`, the `inputs` it read, the `condition` as text, a
+**`margin_pct`** (how close the value was to the threshold), a **`flip_hint`**
+(what would have changed the answer) and its own farmer-facing `advice_en`. That is
+what `/api/explain` and the dashboard's XAI panel render — the explanation is
+computed, not generated.
+
+A rule with a missing input reports **`evaluable: false`** with the reason instead
+of staying silent or guessing. The sharpest example is `R3_HEAT_STRESS`: a heat
+threshold only applies inside a crop's sensitive window, so an **unknown crop stage
+makes the rule unevaluable** rather than assuming the crop is heat-sensitive (this
+was a real defect, fixed — see `docs/LOGICAL_VALIDATION_REPORT.md` A-6, and
+`backend/tests/test_advisory.py`).
+
+### 9.4 Confidence is computed, never asked of the model
+
+The trace carries a `confidence` in [0.3, 1.0] with `confidence_reasons` listing
+every deduction: **−0.1** for each of soil moisture / humidity / wind / crop stage
+missing, **−0.2** if temperature is missing entirely (or −0.1 if only the mean is
+available, which can under-detect heat stress), **−0.1** if the aux layers are
+unavailable for the cell, **−0.1** if any fired rule sits within 10 % of its
+threshold, and **−0.1** if the downscaling attribution leaves a large unexplained
+residual. The minimum is 0.3 — the advisory never claims more certainty than its
+inputs support.
+
+### 9.5 Text: Groq rephrases, Sarvam translates, neither decides
+
+* **Groq** is called through an **ordered multi-model chain** with cooldowns: if a
+  model fails or is rate-limited the next one is tried, and the attempts are
+  returned in the response. It receives the deterministic trace and returns
+  prose — it cannot add, remove or re-rank a rule.
+* **Faithfulness guard:** a rewrite is accepted **only if it introduces no number
+  absent from the trace** (`is_faithful`: every number in the message must already
+  appear in the rule evidence). A rephrase that invents a figure is discarded and
+  the deterministic template is used instead.
+* **Sarvam** (`mayura:v1`) translates the advisory for `lang=hi-IN` and other
+  supported codes; a missing key returns a clear 502 and leaves the server up.
+* **No keys, fully functional:** with empty `GROQ_API_KEY` / `SARVAM_API_KEY` the
+  advisory is the deterministic text and `/api/explain` reports
+  `provider: "rules"`. Nothing in Layer 3 requires an external service.
+
+### 9.6 The API surface (15 route entries, all in `backend/`)
+
+| Route | What it answers, and from where |
+|---|---|
+| `GET /` , `GET /health` | health; `panchayats_loaded` is correct even on a cold process |
+| `GET /api/panchayats?q=` | Panchayat search over `outputs/layer2/panchayat_summary.csv` (real `mapping_method`, `n_cells`; unmapped rows hidden) |
+| `GET /api/geocode` | a Panchayat's own LGD polygon point if known (exact), else a district/block centre **flagged as approximate**; a name shared by several Panchayats returns **409** with the candidates |
+| `GET /api/weather` | Open-Meteo temperature/humidity + DEM elevation at a lat/lon |
+| `GET /api/metrics` | the ablation table, the model card **and the Layer-1 provenance** (grid + checkpoint sha256, members, weights, parameter count) |
+| `GET /api/advisory` | the rule engine **plus** the committed soil/NDVI/land-cover layers, on **rainfall verified against Layer 1** for that Panchayat and date (below) |
+| `POST /api/advisory` | the same engine for deliberate what-if runs not tied to the stored field (temperature and humidity are caller-supplied and labelled as such) |
+| `POST /api/advisory/block` | up to **60** Panchayats in one call, for a block-level view |
+| `POST /api/explain` , `POST /api/explain/generic` , `GET /api/explain/status` | rule-derived factors, optionally Groq-rewritten (falls back to `provider: "rules"`); status reports the model chain |
+| `POST /api/translate` | Sarvam translation of advisory text |
+| `POST /auth/` , `POST /auth` | the NL query path: resolves the named Panchayat, serves the Layer-1 value for the date, and returns an answer with its sources |
+
+The verification contract is the part worth reading twice: `GET /api/advisory`
+resolves the Panchayat's own Layer-1 value through
+`data_store.panchayat_grid_value()` and then
+
+| situation | response |
+|---|---|
+| supplied `rainfall_mm` matches the stored value (tolerance 0.011 mm, half a rounding step) | 200, `verification.rainfall = verified_against_layer1` |
+| `rainfall_mm` omitted | 200, the stored value is used — `resolved_from_layer1` |
+| supplied value disagrees | **409** with `supplied_mm`, `expected_mm`, `difference_mm` |
+| date outside the served grid / masked cell / unknown Panchayat | **422** with `reason` = `date_unavailable` / `masked_cell` / `unknown_panchayat` |
+| no data layer mounted (text-only deployment) | `rainfall_mm` is required, and 200 is labelled `unverified_no_data_source` |
+
+So an advisory can never be produced for a rainfall figure that is not the one
+the model actually produced for that place and day. `backend/README.md` documents
+the same contract route by route.
+
+### 9.7 The dashboard (`Frontend/`)
+
+Next.js on port 3000, reading the backend at `NEXT_PUBLIC_API_URL` (default
+`http://localhost:8000`). Panchayat search (with district/block disambiguation),
+the rainfall card and map for a chosen date, the advisory panel (risk chip, action
+bullets, the evidence row with the exact rainfall and date used), the XAI panel
+(which rule fired, by how much it missed the threshold, and what would flip it) and
+a model card fed by `/api/metrics`.
+
+The frontend holds **no second copy of the rules**. When the backend refuses
+(409/422) the panel shows an explicit *"Advisory withheld"* with the reason, and if
+the service is unreachable it shows *"Advisory unavailable"* with a retry — it never
+substitutes its own guess. (A client-side fallback rule table used to exist and
+disagreed with the engine in the band a farmer actually sees; it was removed —
+`docs/LOGICAL_VALIDATION_REPORT.md` A-5, guarded by
+`backend/tests/test_frontend_contract.py`.)
+
+### 9.8 How Layer 3 is verified
+
+`python -m pytest backend/tests` — **69 tests**, no network and no keys needed:
+the rule engine at every threshold boundary, the advisory-verification contract
+(409/422 for every refusal reason), the artifact-consistency contract (the served
+grid matches the provenance manifest), the aux wiring and the frontend contract.
+On top of that, `qa/qa_logic_advisory.py` sweeps **every** threshold at T±ε and
+runs 11 one-input perturbations to prove each input is causally used, and
+`qa/qa_logic_http.py` checks identity binding and cache isolation over live HTTP.
+
+## 10. Limitations
 
 * **CHIRPS is the reference, not truth.** IMD and CHIRPS disagree substantially
   at daily scale (domain-mean daily coarse corr on the Deccan build ≈ 0.356);
