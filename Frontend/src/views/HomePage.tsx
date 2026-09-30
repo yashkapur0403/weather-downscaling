@@ -14,7 +14,7 @@ const HOW_IT_WORKS_STEPS = [
   { n: '01', icon: <Database className="w-5 h-5" />, title: 'IMD Coarse Input', desc: 'Daily rainfall from IMD at 0.25° (~28 km) is bilinearly upsampled to 0.05° as the starting baseline.' },
   { n: '02', icon: <Cpu className="w-5 h-5" />, title: 'U-Net Residual Correction', desc: 'A ~150k-param residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context.' },
   { n: '03', icon: <Map className="w-5 h-5" />, title: 'Panchayat Aggregation', desc: 'The 0.05° field is spatially joined to 86,103 LGD Gram Panchayat polygons using area-weighted averaging.' },
-  { n: '04', icon: <Brain className="w-5 h-5" />, title: 'Explainable AI Output', desc: 'Each prediction is fully traceable — model inputs, mapping method, and performance metrics are shown alongside the value.' },
+  { n: '04', icon: <Brain className="w-5 h-5" />, title: 'Explainable AI Output', desc: 'Each prediction is fully traceable: model inputs, mapping method, and performance metrics are shown alongside the value.' },
 ];
 
 export function HomePage() {
@@ -67,10 +67,15 @@ export function HomePage() {
       const response: QueryResponse = await queryWeather(request);
       setModelStatus(response.model_status);
       
-      // Update the selected panchayat with the prediction data
+      // Update the selected panchayat with the prediction data.
+      // NOTE: `??`, never `||`. Rainfall of exactly 0.0 mm is a real answer for a
+      // dry day, and `0 || previous` would silently substitute the PREVIOUS
+      // Panchayat's rainfall into the display, the risk chip, the map and the
+      // advisory input (NARASAPURAM/BHEEMUNIPALLI/ALUR all return 0.0 mm on
+      // 2022-07-10). The sibling fields already use ??.
       setSelected({
         ...selected,
-        rainfall_mm: response.prediction.rainfall_mm || selected.rainfall_mm,
+        rainfall_mm: response.prediction.rainfall_mm ?? selected.rainfall_mm,
         temperature_c: response.prediction.temperature_c ?? selected.temperature_c,
         humidity_pct: response.prediction.humidity_pct ?? selected.humidity_pct,
         elevation_m: response.prediction.elevation_m ?? selected.elevation_m,

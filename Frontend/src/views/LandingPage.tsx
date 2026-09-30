@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -36,9 +36,9 @@ const HERO_STATS = [
 
 /* ── The resolution ladder ───────────────────────────────────────────────── */
 const LADDER = [
-  { tag: 'INPUT',  title: 'IMD 0.25°',     value: '28 km',        note: 'Gridded daily rainfall — the coarse product that actually exists operationally.' },
+  { tag: 'INPUT',  title: 'IMD 0.25°',     value: '28 km',        note: 'Gridded daily rainfall, the coarse product that actually exists operationally.' },
   { tag: 'REFINE', title: 'Residual U-Net', value: '+ DEM + ERA5', note: 'Learns the terrain- and atmosphere-driven correction to the bilinear baseline.' },
-  { tag: 'OUTPUT', title: '0.05°',          value: '5 km',         note: 'Scored against CHIRPS v2.0 — a reference product, not ground truth.' },
+  { tag: 'OUTPUT', title: '0.05°',          value: '5 km',         note: 'Scored against CHIRPS v2.0, a reference product, not ground truth.' },
 ];
 
 /* ── Pipeline steps ──────────────────────────────────────────────────────── */
@@ -46,7 +46,7 @@ const PIPELINE = [
   { n: '01', icon: <Database className="w-5 h-5" />, title: 'IMD Coarse Input',        desc: 'Daily rainfall from IMD at 0.25° (~28 km) is bilinearly upsampled to 0.05° as the starting baseline.' },
   { n: '02', icon: <Cpu       className="w-5 h-5" />, title: 'U-Net Residual Correction', desc: 'A ~150k-param residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context.' },
   { n: '03', icon: <Map       className="w-5 h-5" />, title: 'Panchayat Aggregation',   desc: 'The 0.05° field is spatially joined to 86,103 LGD Gram Panchayat polygons using area-weighted averaging.' },
-  { n: '04', icon: <Brain     className="w-5 h-5" />, title: 'Explainable AI Output',   desc: 'Each prediction is fully traceable — model inputs, mapping method, and performance metrics are shown alongside the value.' },
+  { n: '04', icon: <Brain     className="w-5 h-5" />, title: 'Explainable AI Output',   desc: 'Each prediction is fully traceable: model inputs, mapping method, and performance metrics are shown alongside the value.' },
 ];
 
 /* ── Data sources ────────────────────────────────────────────────────────── */
@@ -108,7 +108,6 @@ const DASH_FEATURES = [
   { icon: <Search    className="w-5 h-5" />, title: 'Find a panchayat', body: 'Search by name, block, district or state across 86,103 Gram Panchayats.' },
   { icon: <CloudRain className="w-5 h-5" />, title: 'Downscale',        body: 'Get the 5 km rainfall estimate with temperature, humidity and elevation for that place.' },
   { icon: <Sprout    className="w-5 h-5" />, title: 'Field advisory',   body: 'Crop- and growth-stage-specific guidance drawn from the rainfall estimate.' },
-  { icon: <Brain     className="w-5 h-5" />, title: 'Explain the number', body: 'A language model explains what drove the estimate, how confident it is, and answers follow-up questions.' },
 ];
 
 /* ── Explainable AI panel contents ───────────────────────────────────────── */
@@ -125,8 +124,7 @@ const LIMITATIONS = [
   { title: 'Reference, not truth',  body: 'Scored against CHIRPS v2.0. IMD and CHIRPS disagree at daily scale, so part of every error is their disagreement.' },
   { title: 'Pilot-scale evidence',  body: 'Reported metrics come from the Western Ghats pilot; Deccan-wide training is still pending.' },
   { title: 'Monsoon only',          body: 'June–September data only. There is nothing for the winter season.' },
-  { title: 'Heavy rain is hard',    body: 'MAE-trained models under-detect ≥25 mm days. The weighted variant trades about 0.7 mm of MAE for better detection.' },
-  { title: 'No uncertainty band',   body: 'Every value is a single deterministic estimate, not a probability range.' },
+  { title: 'Heavy rain is hard',    body: 'MAE-trained models under-detect ≥25 mm days, and every value is a single deterministic estimate, not a probability range.' },
 ];
 
 /* ── FAQ ─────────────────────────────────────────────────────────────────── */
@@ -134,7 +132,7 @@ const FAQ: { q: string; a: string[] }[] = [
   {
     q: 'Is this a weather forecast?',
     a: [
-      'No. Obsidian is not a forecasting system — it is a downscaling engine. It takes a coarse daily rainfall field that already exists (IMD at 0.25°) and refines it to 0.05° using terrain and atmospheric context. Everything served here is historical refinement, not a prediction of future weather.',
+      'No. Obsidian is not a forecasting system; it is a downscaling engine. It takes a coarse daily rainfall field that already exists (IMD at 0.25°) and refines it to 0.05° using terrain and atmospheric context. Everything served here is historical refinement, not a prediction of future weather.',
       'For operational use, the same Layer-1 model would consume IMD Block forecasts as its coarse input, and their forecast error would propagate through the pipeline.',
     ],
   },
@@ -148,14 +146,14 @@ const FAQ: { q: string; a: string[] }[] = [
   {
     q: 'Is CHIRPS the ground truth?',
     a: [
-      'No, and this distinction matters. CHIRPS v2.0 at 0.05° is used as the fine-resolution reference product, not as absolute truth. IMD and CHIRPS disagree substantially at daily scale — the domain-mean daily coarse correlation on the Deccan build is about 0.356 — so part of every error term is their disagreement rather than model error.',
+      'No, and this distinction matters. CHIRPS v2.0 at 0.05° is used as the fine-resolution reference product, not as absolute truth. IMD and CHIRPS disagree substantially at daily scale (the domain-mean daily coarse correlation on the Deccan build is about 0.356), so part of every error term is their disagreement rather than model error.',
       'They agree far better at weekly and monthly aggregates, which is where the value of downscaling is clearest. No accuracy claims are made against real-world rainfall.',
     ],
   },
   {
     q: 'Which region and period does the dataset cover?',
     a: [
-      'The full Layer-1 dataset is built for the Deccan region — 11.5–25.5°N, 71.5–81.25°E — covering five monsoon seasons (2018–2022): 610 days and 47,250 land cells on the fine grid. It is monsoon-only (June–September); there is no winter data.',
+      'The full Layer-1 dataset is built for the Deccan region (11.5–25.5°N, 71.5–81.25°E), covering five monsoon seasons (2018–2022): 610 days and 47,250 land cells on the fine grid. It is monsoon-only (June–September); there is no winter data.',
     ],
   },
   {
@@ -169,7 +167,7 @@ const FAQ: { q: string; a: string[] }[] = [
     q: 'Where do the panchayat boundaries come from?',
     a: [
       'From the Local Government Directory (LGD), Ministry of Panchayati Raj, distributed in a CC0 public-domain bundle. Because it is LGD-derived it carries real LGD codes, which makes it the authoritative tier.',
-      'Non-LGD boundary sets from data.gov.in, Datameet or state GIS portals remain geometry-only substitutes and are not equivalent — they lack the LGD codes the mapping depends on.',
+      'Non-LGD boundary sets from data.gov.in, Datameet or state GIS portals remain geometry-only substitutes and are not equivalent: they lack the LGD codes the mapping depends on.',
     ],
   },
   {
@@ -328,7 +326,7 @@ function GridIllustration() {
         ))}
       </div>
       <p className="text-[0.6rem] mt-3" style={{ color: 'var(--muted)' }}>
-        Illustration only — a synthetic field showing the idea, not real model output.
+        Illustration only: a synthetic field showing the idea, not real model output.
       </p>
     </div>
   );
@@ -336,6 +334,26 @@ function GridIllustration() {
 
 /* ── Main page ───────────────────────────────────────────────────────────── */
 export function LandingPage() {
+  // Scroll-reveal: fade/rise each .reveal section in once as it enters the
+  // viewport. Sections start visible via the .reveal CSS fallback if this
+  // never runs, so nothing depends on JS for content to appear.
+  useEffect(() => {
+    const targets = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+    );
+    targets.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="navbar-offset min-h-screen" style={{ background: 'var(--canvas)' }}>
       <LandingNav />
@@ -343,8 +361,9 @@ export function LandingPage() {
       <main>
 
         {/* ═══ HERO ═══════════════════════════════════════════════════════ */}
-        <section id="overview" className="max-w-6xl mx-auto px-6 pt-16 pb-16">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <section id="overview" className="relative max-w-6xl mx-auto px-6 pt-16 pb-16 overflow-hidden">
+          <div className="hero-mesh" aria-hidden="true" />
+          <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -417,7 +436,7 @@ export function LandingPage() {
         </section>
 
         {/* ═══ KEY NUMBERS ════════════════════════════════════════════════ */}
-        <section style={{ background: 'var(--panel)', borderTop: '1px solid var(--hairline)', borderBottom: '1px solid var(--hairline)' }}>
+        <section className="reveal" style={{ background: 'var(--panel)', borderTop: '1px solid var(--hairline)', borderBottom: '1px solid var(--hairline)' }}>
           <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-y-6">
             {KEY_NUMBERS.map((k, i) => (
               <div key={k.label} className="px-4" style={{ borderLeft: i === 0 ? 'none' : '1px solid var(--hairline)' }}>
@@ -430,7 +449,7 @@ export function LandingPage() {
         </section>
 
         {/* ═══ THE PROBLEM + LADDER ═══════════════════════════════════════ */}
-        <section className="max-w-6xl mx-auto px-6 py-16">
+        <section className="reveal max-w-6xl mx-auto px-6 py-16">
           <SectionHeader
             eyebrow="The problem"
             title="28 km is too coarse to advise a farm"
@@ -476,7 +495,7 @@ export function LandingPage() {
         </section>
 
         {/* ═══ HOW IT WORKS ═══════════════════════════════════════════════ */}
-        <section id="how-it-works" className="landing-section max-w-6xl mx-auto px-6 py-16">
+        <section id="how-it-works" className="reveal landing-section max-w-6xl mx-auto px-6 py-16">
           <SectionHeader
             eyebrow="Pipeline"
             title="How it works"
@@ -501,18 +520,16 @@ export function LandingPage() {
             ))}
           </div>
 
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="mt-4 flex flex-wrap gap-x-8 gap-y-3 px-1">
             {[
               { icon: <Database    className="w-3.5 h-3.5" />, label: 'Rainfall channel',    value: 'imd_rain' },
               { icon: <Mountain    className="w-3.5 h-3.5" />, label: 'Terrain channel',     value: 'dem (SRTM 30 m)' },
               { icon: <Thermometer className="w-3.5 h-3.5" />, label: 'Atmosphere channels', value: 'era5_t2m · t2m_max · dewp' },
             ].map((c) => (
-              <div key={c.label} className="landing-card p-4">
-                <div className="flex items-center gap-2 mb-2" style={{ color: 'var(--muted)' }}>
-                  {c.icon}
-                  <span className="text-[0.55rem] uppercase tracking-wider font-mono">{c.label}</span>
-                </div>
-                <p className="font-mono text-xs" style={{ color: 'var(--text)' }}>{c.value}</p>
+              <div key={c.label} className="flex items-center gap-2">
+                <span style={{ color: 'var(--muted)' }}>{c.icon}</span>
+                <span className="text-[0.55rem] uppercase tracking-wider font-mono" style={{ color: 'var(--muted)' }}>{c.label}</span>
+                <span className="font-mono text-xs" style={{ color: 'var(--text)' }}>{c.value}</span>
               </div>
             ))}
           </div>
@@ -547,11 +564,11 @@ export function LandingPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="flex flex-wrap gap-x-8 gap-y-3 py-3" style={{ borderTop: '1px solid var(--hairline)' }}>
               {COVERAGE.map((c) => (
-                <div key={c.label} className="p-4 rounded-xl text-center" style={{ background: 'var(--raised)', border: '1px solid var(--hairline)' }}>
-                  <p className="font-mono font-bold text-lg" style={{ color: 'var(--text)' }}>{c.value}</p>
-                  <p className="text-[0.55rem] uppercase tracking-wider font-mono mt-1" style={{ color: 'var(--muted)' }}>{c.label}</p>
+                <div key={c.label}>
+                  <span className="font-mono font-bold text-base" style={{ color: 'var(--text)' }}>{c.value}</span>{' '}
+                  <span className="text-[0.55rem] uppercase tracking-wider font-mono" style={{ color: 'var(--muted)' }}>{c.label}</span>
                 </div>
               ))}
             </div>
@@ -559,7 +576,7 @@ export function LandingPage() {
         </section>
 
         {/* ═══ EXPLAINABLE AI ═════════════════════════════════════════════ */}
-        <section id="explainable-ai" className="landing-section max-w-6xl mx-auto px-6 py-16">
+        <section id="explainable-ai" className="reveal landing-section max-w-6xl mx-auto px-6 py-16">
           <SectionHeader
             eyebrow="Explainable AI"
             title="Every number comes with a reason"
@@ -593,33 +610,41 @@ export function LandingPage() {
         </section>
 
         {/* ═══ IN THE DASHBOARD ═══════════════════════════════════════════ */}
-        <section className="landing-section max-w-6xl mx-auto px-6 py-16">
+        <section className="reveal landing-section max-w-6xl mx-auto px-6 py-16">
           <SectionHeader
             eyebrow="Dashboard"
             title="What you can do with it"
-            sub="From a panchayat name to a rainfall estimate, advisory and explanation in four steps."
+            sub="From a panchayat name to a rainfall estimate and field advisory in three steps."
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {DASH_FEATURES.map((f, i) => (
-              <div key={f.title} className="landing-card-plain p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(176, 141, 87, 0.1)', color: 'var(--accent)', border: '1px solid rgba(176, 141, 87, 0.2)' }}
-                  >
-                    {f.icon}
+              <div key={f.title} className="relative">
+                <div className="landing-card-plain p-5 h-full">
+                  <div className="flex items-center justify-between mb-4">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center"
+                      style={{ background: 'rgba(176, 141, 87, 0.1)', color: 'var(--accent)', border: '1px solid rgba(176, 141, 87, 0.2)' }}
+                    >
+                      {f.icon}
+                    </div>
+                    <span className="font-mono text-[0.6rem]" style={{ color: 'var(--muted)' }}>0{i + 1}</span>
                   </div>
-                  <span className="font-mono text-[0.6rem]" style={{ color: 'var(--muted)' }}>0{i + 1}</span>
+                  <p className="font-semibold text-sm mb-1.5" style={{ color: 'var(--text)' }}>{f.title}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>{f.body}</p>
                 </div>
-                <p className="font-semibold text-sm mb-1.5" style={{ color: 'var(--text)' }}>{f.title}</p>
-                <p className="text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>{f.body}</p>
+                {i < DASH_FEATURES.length - 1 && (
+                  <ArrowRight
+                    className="hidden sm:block w-4 h-4 absolute top-1/2 -right-[0.8rem] -translate-y-1/2 z-10"
+                    style={{ color: 'var(--accent)', opacity: 0.6 }}
+                  />
+                )}
               </div>
             ))}
           </div>
         </section>
 
         {/* ═══ RESULTS ════════════════════════════════════════════════════ */}
-        <section id="results" className="landing-section max-w-6xl mx-auto px-6 py-16">
+        <section id="results" className="reveal landing-section max-w-6xl mx-auto px-6 py-16">
           <SectionHeader
             eyebrow="Results"
             title="Ablation across the evaluation splits"
@@ -691,7 +716,7 @@ export function LandingPage() {
         </section>
 
         {/* ═══ LIMITATIONS ════════════════════════════════════════════════ */}
-        <section className="landing-section max-w-6xl mx-auto px-6 py-16">
+        <section className="reveal landing-section max-w-6xl mx-auto px-6 py-16">
           <SectionHeader
             eyebrow="Limitations"
             title="What it does not claim"
@@ -711,11 +736,11 @@ export function LandingPage() {
         </section>
 
         {/* ═══ FAQ ════════════════════════════════════════════════════════ */}
-        <section id="faq" className="landing-section max-w-3xl mx-auto px-6 py-16">
+        <section id="faq" className="reveal landing-section max-w-3xl mx-auto px-6 py-16">
           <SectionHeader
             eyebrow="FAQ"
             title="Frequently asked questions"
-            sub="The honest answers — what this system is, what it is not, and what it can and cannot claim."
+            sub="The honest answers: what this system is, what it is not, and what it can and cannot claim."
           />
 
           <FaqSection />

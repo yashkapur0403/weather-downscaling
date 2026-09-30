@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchExplanation } from '../../api/backend';
 import type { Panchayat, ModelMetrics, ExplainRequest, ExplainResponse, ExplainFactor } from '../../types';
 import { classifyRisk } from '../../types';
-import { Brain, Loader2, RefreshCw, Send, ArrowUp, ArrowDown, Minus, Info } from 'lucide-react';
+import { Brain, Loader2, RefreshCw, ArrowUp, ArrowDown, Minus, Info } from 'lucide-react';
 
 interface XAIPanelProps {
   selected: Panchayat | null;
@@ -62,7 +62,7 @@ function buildRequest(p: Panchayat, metrics: ModelMetrics | null, question?: str
 }
 
 // ── Client-side fallback (used when backend /api/explain or Groq is offline) ─
-function generateLocalExplanation(req: ExplainRequest): ExplainResponse {
+function generateLocalExplanation(req: ExplainRequest, reason?: string): ExplainResponse {
   const { prediction: pr, mapping, model } = req;
   const factors: ExplainFactor[] = [
     {
@@ -118,6 +118,7 @@ function generateLocalExplanation(req: ExplainRequest): ExplainResponse {
       : null,
     provider: 'rules',
     model: 'client-side fallback',
+    fallback_reason: reason ?? null,
     generated_at: new Date().toISOString(),
   };
 }
@@ -125,32 +126,26 @@ function generateLocalExplanation(req: ExplainRequest): ExplainResponse {
 export function XAIPanel({ selected, metrics, isProjectionRun }: XAIPanelProps) {
   const [result, setResult] = useState<ExplainResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [question, setQuestion] = useState('');
-  const [asking, setAsking] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const explain = useCallback(async (q?: string) => {
+  const explain = useCallback(async () => {
     if (!selected) return;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
-    const req = buildRequest(selected, metrics, q);
-    if (q) setAsking(true);
-    else setLoading(true);
+    const req = buildRequest(selected, metrics);
+    setLoading(true);
     try {
       const res = await fetchExplanation(req, ctrl.signal);
-      if (!ctrl.signal.aborted) setResult(prev => (q && prev ? { ...prev, answer: res.answer ?? res.explanation } : res));
-    } catch {
+      if (!ctrl.signal.aborted) setResult(res);
+    } catch (err) {
       if (ctrl.signal.aborted) return;
-      // Backend /api/explain not available — fall back to local rules
-      const local = generateLocalExplanation(req);
-      setResult(prev => (q && prev ? { ...prev, answer: local.answer } : local));
+      // Backend /api/explain not available, fall back to local rules
+      const local = generateLocalExplanation(req, `Backend request failed: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300));
+      setResult(local);
     } finally {
-      if (!ctrl.signal.aborted) {
-        setLoading(false);
-        setAsking(false);
-      }
+      if (!ctrl.signal.aborted) setLoading(false);
     }
   }, [selected, metrics]);
 
@@ -161,7 +156,6 @@ export function XAIPanel({ selected, metrics, isProjectionRun }: XAIPanelProps) 
       abortRef.current?.abort();
       setResult(null);
     }
-    setQuestion('');
     return () => abortRef.current?.abort();
   }, [isProjectionRun, selected, explain]);
 
@@ -233,6 +227,12 @@ export function XAIPanel({ selected, metrics, isProjectionRun }: XAIPanelProps) 
         </div>
       </div>
 
+      {result && !isLLM && result.fallback_reason && (
+        <p className="px-5 pt-3 text-[0.6rem] font-mono" style={{ color: 'var(--muted)' }}>
+          Why rules: {result.fallback_reason}
+        </p>
+      )}
+
       {/* Content */}
       <div className="px-5 py-4">
         {loading || !result ? (
@@ -255,37 +255,6 @@ export function XAIPanel({ selected, metrics, isProjectionRun }: XAIPanelProps) 
                   <p className="text-[0.65rem] leading-relaxed" style={{ color: 'var(--muted)' }}>{result.confidence_note}</p>
                 </div>
               </div>
-
-              {/* Follow-up question */}
-              <form
-                className="flex items-center gap-2 pt-1"
-                onSubmit={e => {
-                  e.preventDefault();
-                  if (question.trim()) explain(question.trim());
-                }}
-              >
-                <input
-                  className="sidebar-input flex-1"
-                  placeholder="Ask why… e.g. why is it higher than nearby areas?"
-                  value={question}
-                  maxLength={300}
-                  onChange={e => setQuestion(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  disabled={asking || !question.trim()}
-                  className="p-2 rounded-lg disabled:opacity-40"
-                  style={{ background: 'var(--copper)', color: 'var(--canvas)' }}
-                  title="Ask"
-                >
-                  {asking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                </button>
-              </form>
-              {result.answer && (
-                <p className="text-xs leading-relaxed p-3 rounded-lg" style={{ background: 'var(--raised)', color: 'var(--text-2)' }}>
-                  {result.answer}
-                </p>
-              )}
             </div>
 
             {/* Right: factor attribution */}

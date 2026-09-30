@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Brand } from './Brand';
+import { ThemeToggle } from './ThemeToggle';
 
 const sections = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -13,6 +14,14 @@ const sections = [
 
 export function Navbar() {
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -38,8 +47,8 @@ export function Navbar() {
   };
 
   return (
-    <nav className="dashboard-navbar">
-      <div className="relative flex h-12 items-center px-4">
+    <nav className={`dashboard-navbar${scrolled ? ' is-scrolled' : ''}`}>
+      <div className={`navbar-row relative flex items-center px-4 ${scrolled ? 'h-10' : 'h-12'}`}>
         <Brand href="/" />
 
         <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-8">
@@ -57,15 +66,7 @@ export function Navbar() {
         </div>
 
         <div className="ml-auto flex items-center gap-4">
-          <a
-            href="https://github.com/yashkapur0403/weather-downscaling"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden md:block text-xs font-semibold no-underline uppercase tracking-wide"
-            style={{ color: 'var(--muted)' }}
-          >
-            GitHub ↗
-          </a>
+          <ThemeToggle />
           <Link
             href="/"
             className="landing-cta landing-cta-ghost"

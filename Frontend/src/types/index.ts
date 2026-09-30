@@ -34,9 +34,9 @@ export interface Panchayat {
   state: string;
   date: string;           // "2022-07-10"
   rainfall_mm: number;
-  temperature_c: number;
-  humidity_pct: number;
-  elevation_m: number;
+  temperature_c: number | null;
+  humidity_pct: number | null;
+  elevation_m: number | null;
   n_cells: number;
   mapping_method: 'direct_grid' | 'area_weighted' | 'nearest_fallback';
   fallback_distance_m: number | null;
@@ -145,6 +145,25 @@ export interface AdvisoryResponse {
   disclaimer: string;
   crop: string;
   stage: string;
+  /** What the backend CHECKED before running the rules. `rainfall` is
+   *  'verified_against_layer1' when the value we sent matched the stored
+   *  Layer-1 field for this Panchayat and date, 'resolved_from_layer1' when the
+   *  server looked it up itself, 'unverified_no_data_source' when no data layer
+   *  was mounted. Temperature/humidity are always caller-supplied. */
+  verification?: {
+    panchayat_id: number;
+    date: string;
+    rainfall: 'verified_against_layer1' | 'resolved_from_layer1' | 'unverified_no_data_source';
+    supplied_mm: number | null;
+    expected_mm: number | null;
+    source: string | null;
+    cell: [number, number] | null;
+    location_precision: string | null;
+    reason?: string | null;
+    temperature_c: 'caller_supplied' | 'absent';
+    humidity_pct: 'caller_supplied' | 'absent';
+    aux: string;
+  };
 }
 
 export const CROP_OPTIONS = [
@@ -167,6 +186,25 @@ export const STAGE_OPTIONS = [
 
 export type CropType = (typeof CROP_OPTIONS)[number]['value'];
 export type CropStage = (typeof STAGE_OPTIONS)[number]['value'];
+
+// ── Regional language (Sarvam AI translation, applied server-side) ─────────
+// Mirrors the `LangCode` literal in backend/main.py exactly — these are the
+// only codes the backend will translate the advisory into.
+export const LANGUAGE_OPTIONS = [
+  { value: 'en-IN', label: 'English' },
+  { value: 'hi-IN', label: 'हिंदी (Hindi)' },
+  { value: 'bn-IN', label: 'বাংলা (Bengali)' },
+  { value: 'ta-IN', label: 'தமிழ் (Tamil)' },
+  { value: 'te-IN', label: 'తెలుగు (Telugu)' },
+  { value: 'kn-IN', label: 'ಕನ್ನಡ (Kannada)' },
+  { value: 'ml-IN', label: 'മലയാളം (Malayalam)' },
+  { value: 'mr-IN', label: 'मराठी (Marathi)' },
+  { value: 'gu-IN', label: 'ગુજરાતી (Gujarati)' },
+  { value: 'od-IN', label: 'ଓଡ଼ିଆ (Odia)' },
+  { value: 'pa-IN', label: 'ਪੰਜਾਬੀ (Punjabi)' },
+] as const;
+
+export type LangCode = (typeof LANGUAGE_OPTIONS)[number]['value'];
 
 export const SEVERITY_STYLE: Record<AdvisorySeverity, { bg: string; color: string; border: string }> = {
   info:    { bg: 'rgba(47,111,143,0.08)',  color: 'var(--heat-1)', border: 'rgba(47,111,143,0.2)' },
@@ -227,4 +265,5 @@ export interface ExplainResponse {
   provider: string;           // "groq"
   model: string;              // e.g. "llama-3.3-70b-versatile"
   generated_at: string;       // ISO timestamp
+  fallback_reason?: string | null; // why rules were used instead of the LLM
 }

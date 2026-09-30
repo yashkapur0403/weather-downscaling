@@ -70,17 +70,17 @@ export function RightSidebar({
         <div className="grid grid-cols-3 gap-2">
           <div className="metric-panel">
             <Thermometer className="w-3.5 h-3.5 mb-2" style={{ color: 'var(--heat-3)' }} />
-            <p className="metric-number text-lg">{selected.temperature_c.toFixed(1)}°</p>
+            <p className="metric-number text-lg">{selected.temperature_c != null ? `${selected.temperature_c.toFixed(1)}°` : '—'}</p>
             <p className="text-[0.55rem] mt-0.5" style={{ color: 'var(--muted)' }}>Temperature</p>
           </div>
           <div className="metric-panel">
             <Droplets className="w-3.5 h-3.5 mb-2" style={{ color: 'var(--heat-1)' }} />
-            <p className="metric-number text-lg">{selected.humidity_pct}%</p>
+            <p className="metric-number text-lg">{selected.humidity_pct != null ? `${selected.humidity_pct}%` : '—'}</p>
             <p className="text-[0.55rem] mt-0.5" style={{ color: 'var(--muted)' }}>Humidity</p>
           </div>
           <div className="metric-panel">
             <Mountain className="w-3.5 h-3.5 mb-2" style={{ color: 'var(--reference)' }} />
-            <p className="metric-number text-lg">{selected.elevation_m}</p>
+            <p className="metric-number text-lg">{selected.elevation_m ?? '—'}</p>
             <p className="text-[0.55rem] mt-0.5" style={{ color: 'var(--muted)' }}>Elevation m</p>
           </div>
         </div>
@@ -110,7 +110,7 @@ export function RightSidebar({
           <p className="text-[0.7rem] leading-relaxed" style={{ color: 'var(--text-2)' }}>
             {selected.panchayat_name} received{' '}
             <span style={{ color: 'var(--text)' }}>{selected.rainfall_mm.toFixed(1)} mm/day</span>{' '}
-            on {selected.date} —{' '}
+            on {selected.date}, {' '}
             {risk === 'very_heavy' ? 'classified as very heavy rainfall, likely causing flooding concerns.' :
              risk === 'heavy' ? 'classified as heavy rainfall, significant for agriculture.' :
              risk === 'moderate' ? 'classified as moderate rainfall, beneficial for crops.' :
@@ -129,7 +129,7 @@ export function RightSidebar({
         <div className="flex items-start gap-2 p-3" style={{ background: 'var(--raised)', border: '1px solid var(--hairline)', borderRadius: '4px' }}>
           <Info className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: 'var(--muted)' }} />
           <p className="text-[0.6rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
-            Scored against CHIRPS v2.0 — a reference product, not absolute ground truth.
+            Scored against CHIRPS v2.0, a reference product, not absolute ground truth.
           </p>
         </div>
       </div>

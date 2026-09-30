@@ -115,7 +115,7 @@ export function MapView({ selected, onSelectLocation }: MapViewProps) {
 
   return (
     <div className="relative w-full h-full gpu-layer">
-      <div ref={mapRef} className="w-full h-full" style={{ background: '#050608' }} />
+      <div ref={mapRef} className="w-full h-full" style={{ background: 'var(--canvas)' }} />
       {!selected && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-center">
