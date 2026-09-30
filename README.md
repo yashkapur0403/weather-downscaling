@@ -42,7 +42,7 @@ templates). `backend/README.md` documents every route and what data backs it.
 
 ## 0. File map — what is what, who uses what (read this first)
 
-**New here?** Read this table, then §1–§3 for context, then `HANDOVER.md` for
+**New here?** Read this table, then §1–§3 for context, then `docs/HANDOVER.md` for
 step-by-step training/Layer-2 instructions.
 
 | Path | What it is | Who consumes it |
@@ -61,10 +61,12 @@ step-by-step training/Layer-2 instructions.
 | `scripts/` | **ACTIVE pipeline (Deccan)**: one script per stage (see §6) — every stage is cached/resumable | the pipeline |
 | `backend/` | The FastAPI app (**Layer 3**): data store, rule engine, Groq/Sarvam text, all `/api/*` routes. Serves on port 8000 and reads every other directory in this repo | the web app, judges |
 | `Frontend/` | The Next.js dashboard. Reads the backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`) | the user |
-| `weather-downscaling-main/` | **Legacy, superseded — archive only.** The teammate's original app snapshot, merged in early; the app now lives at `backend/` + `Frontend/`. Kept because it holds the only committed copies of the per-Panchayat `panchayat_weather.geojson` (46 MB) and `layer2_mh/` GeoJSON, the Panchayat CSV/PKL exports and `layer1_model.pkl`. Do not wire it up | archive / data recovery |
+| `legacy/weather-downscaling-main/` | **Legacy, superseded — archive only.** The teammate's original app snapshot, merged in early; the app now lives at `backend/` + `Frontend/`. Kept because it holds the only committed copies of the per-Panchayat `panchayat_weather.geojson` (46 MB) and `layer2_mh/` GeoJSON, the Panchayat CSV/PKL exports and `layer1_model.pkl`. Do not wire it up. The same folder holds the old `legacy/frontend_backend_match.patch` | archive / data recovery |
 | `data.zip` | Current **Deccan** model-ready archive (`data/processed/`, ~929 MiB; CRC + shapes verified). **Not in git** — copy from the shared OneDrive folder and run `unzip data.zip` at the repo root (or rebuild, §5). The old pilot archive is kept as `data_pilot_westernghats_LEGACY.zip` (~1.7 GB) | transfer / offline rebuild |
 | `models/`, `outputs/` | **The Deccan run**: checkpoints A–F + `ensemble.json` (the *deployed* model), the served grid `outputs/prediction_test.npz`, the ablation table, the provenance manifest `layer1_manifest.json` and the Layer-2 products | backend, Layer-2, humans |
-| `HANDOVER.md` | **The ops manual**: exact training commands, evaluation rules, Layer-2 recipes, rebuild instructions, all dataset decisions | the person doing training / Layer-2 (you, probably) |
+| `docs/HANDOVER.md` | **The ops manual**: exact training commands, evaluation rules, Layer-2 recipes, rebuild instructions, all dataset decisions | the person doing training / Layer-2 (you, probably) |
+| `docs/` (rest) | `LOGICAL_VALIDATION_REPORT.md` (the logical/scientific validation report), `COMPREHENSIVE_QA_TEST_REPORT.md` (the executed QA report) and `END_TO_END_QA_TEST_PLAN.md` (its plan). All long-form documentation lives here | humans, judges |
+| `qa/` | The QA **evidence**: one script per investigation plus its recorded JSON result, cited by `docs/LOGICAL_VALIDATION_REPORT.md` §19. `qa/README.md` says how to re-run them | reviewers |
 
 ---
 
@@ -266,16 +268,17 @@ weather-downscaling/
 │   ├── retry_soil_nan.py   # soil NaN diagnostics (genuine SoilGrids nulls)
 │   ├── verify_dataset.py   # end-to-end dataset QA (loud, exit-code)
 │   ├── train.py / ablation.py / evaluate.py / infer.py
-│   ├── train.py / ablation.py / evaluate.py / infer.py
 │   ├── layer2_panchayat_mapping.py / produce_block_rainfall.py / layer2_config.py
 │   └── check_blocks.py
 ├── backend/                # FastAPI app (Layer 3 advisory + /api/*), port 8000
 ├── Frontend/               # Next.js dashboard, port 3000
 ├── outputs/{maps,metrics,figures,layer2}/  # served grid, ablation + provenance, Layer-2 products
 ├── generate_pred.py        # rebuilds outputs/prediction_test.npz + layer1_manifest.json
+├── docs/                   # HANDOVER.md + the validation / QA reports
+├── qa/                     # the QA evidence: qa_*.py scripts + their qa_*.json results
+├── legacy/                 # superseded app snapshot (unique data) + the old patch
 ├── data.zip                          # current Deccan archive (data/processed/, ~929 MiB)
 ├── data_pilot_westernghats_LEGACY.zip # old Western-Ghats pilot archive (~1.7 GB, kept separate)
-├── HANDOVER.md             # how to train on this dataset + Layer-2 usage
 └── README.md
 ```
 
@@ -382,7 +385,7 @@ are NOT equivalent to LGD**. The 15 states the Deccan grid covers (from
 `data/aux_data/admin/grid_admin_map_deccan.npz`): AndhraPradesh, Chhattisgarh,
 DadraandNagarHaveli, DamanandDiu, Goa, Gujarat, Karnataka, Kerala,
 MadhyaPradesh, Maharashtra, Puducherry, Rajasthan, TamilNadu, Telangana,
-UttarPradesh. Schema, provenance and verification: `HANDOVER.md` §4.2.
+UttarPradesh. Schema, provenance and verification: `docs/HANDOVER.md` §4.2.
 * Soil/NDVI/LULC give the agricultural context for advisories (drought
   flags by soil water-holding proxies, vegetation state, dominant land use).
 

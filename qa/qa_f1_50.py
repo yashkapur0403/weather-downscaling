@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 sys.path.insert(0, str(HERE / "scripts"))
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
@@ -104,5 +104,5 @@ for name in ("E",):
     print(f"{name}: k*={kk_star:.2f}  val_F1={dv['f1']:.3f}  TEST F1={dt['f1']:.3f} "
           f"(P={dt['p']:.3f} R={dt['r']:.3f})")
 
-json.dump(best, open(HERE / "qa_f1_50.json", "w"), indent=1)
+json.dump(best, open(HERE / "qa" / "qa_f1_50.json", "w"), indent=1)
 print("\n-> qa_f1_50.json")

@@ -1090,7 +1090,7 @@ Soil-moisture days: {sm.get('n_days', '-')} on a {sm.get('lattice', ['-','-'])[0
              "quota-blocked by the free Open-Meteo DAILY limit; resume with "
              "build_aux.py --region deccan --skip-admin --skip-soil --skip-ndvi "
              "--skip-lulc (per-batch/year caches make each attempt additive) - "
-             "see HANDOVER.md section 7"]
+             "see docs/HANDOVER.md section 7"]
     (rep / f"missingness_report_{region}.md").write_text("\n".join(miss))
     return {"reports": [str(p) for p in sorted(rep.glob("*"))]}
 

@@ -218,4 +218,4 @@ print("BLACK-BOX TOTAL:", len(R), "| PASS", sum(1 for x in R if x["st"] == "PASS
 for x in R:
     if x["st"] == "FAIL":
         print("  FAIL:", x["id"], x["test"], "|", x["note"])
-json.dump(R, open("qa_blackbox.json", "w"), indent=1)
+json.dump(R, open("qa/qa_blackbox.json", "w"), indent=1)

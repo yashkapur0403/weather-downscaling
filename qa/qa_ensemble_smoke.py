@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 sys.path.insert(0, str(HERE / "scripts"))
 import numpy as np  # noqa: E402
 import torch  # noqa: E402

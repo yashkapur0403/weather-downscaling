@@ -197,7 +197,7 @@ const FAQ: { q: string; a: string[] }[] = [
     q: 'Can I reproduce the dataset and results myself?',
     a: [
       'Yes. Create a virtual environment, install requirements.txt, then run the region-aware pipeline in order: download_or_export.py (IMD, CHIRPS, DEM, ERA5), build_aux.py (admin, soil, NDVI, land cover), fetch_lgd_panchayats.py, preprocess.py, and finally verify_dataset.py — an end-to-end QA pass that exits non-zero on any problem.',
-      'Every stage is cached and resumable, so re-runs are cheap. The exact training commands and the order to run them against the Deccan configuration are documented in HANDOVER.md.',
+      'Every stage is cached and resumable, so re-runs are cheap. The exact training commands and the order to run them against the Deccan configuration are documented in docs/HANDOVER.md.',
     ],
   },
   {

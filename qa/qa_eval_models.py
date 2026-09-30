@@ -1,7 +1,7 @@
 """Evaluate candidate checkpoints on val+test with full event metrics."""
 import sys, json
 from pathlib import Path
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 sys.path.insert(0, str(HERE / "scripts"))
 import numpy as np, torch
 from train import SmallUNet, load_data, predict_mm

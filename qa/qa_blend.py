@@ -3,7 +3,7 @@ import json
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 sys.path.insert(0, str(HERE / "scripts"))
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
@@ -69,5 +69,5 @@ for name in P["val"]:
         print(f"{name:12s} {k:5s} {r['MAE']:6.2f} {r['RMSE']:6.2f} {r['corr']:6.3f} | "
               f"{r['>=10mm']['F1']:6.3f} {r['>=25mm']['F1']:6.3f} {r['>=50mm']['F1']:6.3f}")
 
-json.dump(out, open(HERE / "qa_blend.json", "w"), indent=1, default=float)
+json.dump(out, open(HERE / "qa" / "qa_blend.json", "w"), indent=1, default=float)
 print("\n-> qa_blend.json")

@@ -84,7 +84,7 @@ with the before/after values rather than presenting a moving target.
 
 Every claim below names its evidence: an experiment ID (`IDENT`, `POLY`, `THR`, `PERT`, `HTTP-…`), a
 console line, or a code location as `file:line`. The machine-readable dump of every experiment is in
-`qa_logic_*.json` (§19).
+`qa/qa_logic_*.json` (§19).
 
 ---
 
@@ -100,10 +100,10 @@ thing* — and it changes **four** of the earlier conclusions:
 
 | Earlier conclusion | This pass | Evidence |
 |---|---|---|
-| "Panchayat mapping is a polygon aggregation (`area_weighted` for 60 % of rows)" | The **served** number is the nearest fine-grid cell at the Panchayat's representative point, regardless of `mapping_method` | **B-1**, `qa_logic_core.json → polygon_vs_nearest` (e.g. pid 276458: nearest 25.34 vs area-weighted 28.77) |
-| "Aux soil/NDVI/LULC are wired into Layer 3" | True, but only **clay, NDVI and LULC dominant/cropland-fraction** reach a rule; `sand`, `ocd`, `ph`, `bdod` are transported and displayed but never decide anything, and `SAND_HIGH_G_PER_KG` is a dead constant | **C-* / G-10**, `grep SAND_HIGH_G_PER_KG`, `qa_logic_advisory.json → perturbations` |
+| "Panchayat mapping is a polygon aggregation (`area_weighted` for 60 % of rows)" | The **served** number is the nearest fine-grid cell at the Panchayat's representative point, regardless of `mapping_method` | **B-1**, `qa/qa_logic_core.json → polygon_vs_nearest` (e.g. pid 276458: nearest 25.34 vs area-weighted 28.77) |
+| "Aux soil/NDVI/LULC are wired into Layer 3" | True, but only **clay, NDVI and LULC dominant/cropland-fraction** reach a rule; `sand`, `ocd`, `ph`, `bdod` are transported and displayed but never decide anything, and `SAND_HIGH_G_PER_KG` is a dead constant | **C-* / G-10**, `grep SAND_HIGH_G_PER_KG`, `qa/qa_logic_advisory.json → perturbations` |
 | "F1≥50 mm is a model limitation to document" | It is **fixable** and was fixed: a val-selected E+F ensemble beats the baseline at every threshold (0.284 vs 0.234) | §12.4, `ablation.json`, commit `4b2bc46` |
-| "The `panchayat_summary` layer is consistent" | Its rainfall columns come from a **different Layer-1 version** than the one served | **A-3**, `qa_logic_core.json → layer2_summary_staleness` |
+| "The `panchayat_summary` layer is consistent" | Its rainfall columns come from a **different Layer-1 version** than the one served | **A-3**, `qa/qa_logic_core.json → layer2_summary_staleness` |
 
 It also **confirms** three earlier conclusions as logically sound: the D-11 mask arithmetic
 (44,243 target-valid fine cells per day, constant across all 122 days), the `ndvi` array layout
@@ -284,7 +284,7 @@ artefact was found (**G-20**).
 ### 6.1 Every threshold, at its boundary (**G-6**)
 
 All ten thresholds in `backend/advisory.py:131–147` were executed at `T−0.01 / T / T+0.01` through the
-real engine (`qa_logic_advisory.py → threshold_boundaries`):
+real engine (`qa/qa_logic_advisory.py → threshold_boundaries`):
 
 | Rule | Threshold | T−ε | T | T+ε | Boundary semantics |
 |---|---|---|---|---|---|
@@ -346,7 +346,7 @@ factually wrong. Reported as **A-6 (Low-Medium)**.
 
 ### 6.4 Advisory action coherence (**G-11**) — no contradictions found
 
-Five adversarial combinations were run (`qa_logic_advisory.json → coherence`):
+Five adversarial combinations were run (`qa/qa_logic_advisory.json → coherence`):
 
 | Case | Fired | Contradiction? |
 |---|---|---|
@@ -561,7 +561,7 @@ normalisation of the target (`Y / 100`), which is the training contract, not a s
 ## 10. Perturbation / Causal Tests
 
 Every experiment below changes **exactly one** input and holds the rest constant, then classifies the
-result (`qa_logic_advisory.json → perturbations`).
+result (`qa/qa_logic_advisory.json → perturbations`).
 
 | # | Varied input | Constant | Outcome | Classification |
 |---|---|---|---|---|
@@ -710,7 +710,7 @@ ranking is right (precision 0.33 at ≥50 mm means the model's high values are m
 
 ### 12.2 Why the heavy-rain threshold was failing, and what fixed it
 
-Diagnosis (`qa_f1_50.json`) on the previous deployed checkpoint (E):
+Diagnosis (`qa/qa_f1_50.json`) on the previous deployed checkpoint (E):
 
 ```
 threshold 50 mm:  precision 0.438   recall 0.076   F1 0.129
@@ -832,9 +832,9 @@ when the fallback is active.
 
 | ID | Sev | Defect | Evidence |
 |---|---|---|---|
-| **A-1** | **High** | `HomePage.tsx` uses `response.prediction.rainfall_mm \|\| selected.rainfall_mm`. A legitimate `0.0 mm` answer is falsy and is replaced by the **previous selection's** rainfall, which then feeds the display, the risk chip, the map and the advisory. Reachable in production data. | `NARASAPURAM` / `BHEEMUNIPALLI` / `ALUR` return exactly `0.0 mm` on 2022-07-10 (`qa_logic_http.json → zero_rain_case`); `HomePage.tsx:73` (contrast `??` on the three lines below it) |
-| **A-2** | **High** | `GET /api/advisory` takes `rainfall_mm` from the caller and never validates it against the Panchayat/date; `panchayat_id` is used only for aux lookup; `date` is echoed into `data_date` unvalidated; a bogus id returns 200 with `aux: null`. | rainfall 0 → warning vs rainfall 999 → alert on the same id/date; `date=1999-01-01` → 200; `panchayat_id=999999999` → 200 (`qa_logic_http.json → layer3_binding`); `main.py:501–546` |
-| **A-3** | **Med** | `panchayat_summary.csv` rainfall columns come from a **different Layer-1 grid version** than the one served, with no version stamp. Served by `/api/panchayats`. | summary max `163.2806` (= the pre-hardening grid max; current `193.96`); pid 202270 recorded `4.89` vs recomputed `14.94`; pid 276458 `5.03` vs `18.17`; aggregate summary mean `4.008` vs field mean `9.413` (`qa_logic_core.json → layer2_summary_staleness`) |
+| **A-1** | **High** | `HomePage.tsx` uses `response.prediction.rainfall_mm \|\| selected.rainfall_mm`. A legitimate `0.0 mm` answer is falsy and is replaced by the **previous selection's** rainfall, which then feeds the display, the risk chip, the map and the advisory. Reachable in production data. | `NARASAPURAM` / `BHEEMUNIPALLI` / `ALUR` return exactly `0.0 mm` on 2022-07-10 (`qa/qa_logic_http.json → zero_rain_case`); `HomePage.tsx:73` (contrast `??` on the three lines below it) |
+| **A-2** | **High** | `GET /api/advisory` takes `rainfall_mm` from the caller and never validates it against the Panchayat/date; `panchayat_id` is used only for aux lookup; `date` is echoed into `data_date` unvalidated; a bogus id returns 200 with `aux: null`. | rainfall 0 → warning vs rainfall 999 → alert on the same id/date; `date=1999-01-01` → 200; `panchayat_id=999999999` → 200 (`qa/qa_logic_http.json → layer3_binding`); `main.py:501–546` |
+| **A-3** | **Med** | `panchayat_summary.csv` rainfall columns come from a **different Layer-1 grid version** than the one served, with no version stamp. Served by `/api/panchayats`. | summary max `163.2806` (= the pre-hardening grid max; current `193.96`); pid 202270 recorded `4.89` vs recomputed `14.94`; pid 276458 `5.03` vs `18.17`; aggregate summary mean `4.008` vs field mean `9.413` (`qa/qa_logic_core.json → layer2_summary_staleness`) |
 | **A-4** | **Med** | The search-result list shows a **season mean** with a single date attached (`{p.rainfall_mm} mm — {p.date}` where `date` is `DEFAULT_DATE`). | `PanchayatSearch.tsx:112`, `data_store.py:_row_to_panchayat` (`rainfall_basis: "season_mean_2022"`) |
 | **A-5** | **Med** | The client-side fallback advisory is a different rule set (different tiers, ignores crop/stage/temp/aux), so the same inputs yield different advice depending on backend reachability. | `AdvisoryPanel.tsx:14–60` vs `advisory.py` (§13.5) |
 | **A-6** | **Low-Med** | An **unknown crop stage** makes R3_HEAT_STRESS fire (treated as heat-sensitive, severity downgraded) while the trace's `condition` claims the stage must be in the sensitive set. Missing input increases hazard instead of marking the rule unevaluable. | `advisory.py:275–280`; `THR`/`PERT` row 2: stage `None` at 34.5 °C → R3 fires, severity medium |
@@ -1038,7 +1038,7 @@ Ordered by value per unit of effort. Items 1–3 close the chain the judges will
 | Browser-level UI interaction (clicking a Panchayat, changing crop, observing the panel) | No headless browser session available; the frontend was validated by `tsc --noEmit`, `next build`, and source inspection against the API contract. | The frontend findings A-1, A-4, A-5, A-7 are **source-and-API-verified**, not click-verified. A-1 in particular is a code-reading conclusion confirmed by a real `0.0 mm` API response; a browser check is still advisable. |
 | Full `scripts/layer2_panchayat_mapping.py` regeneration | Needs geopandas + the LGD overlay over 87,735 polygons per date and writes the >100 MB gitignored `panchayat_weather.csv`; far outside the remaining budget. | A-3 is proven by recomputing the same quantity for three Panchayats from the served field; the *cause* of the mismatch (which historical run produced the file) is inferred from the max-value fingerprint, not reproduced. |
 | `scripts/evaluate.py` re-run | Writes figures and `prediction/*.npz` for every model; ~6 model × 2 split full-grid passes. | `outputs/metrics/metrics.json` result rows are stale; the block the API actually reads (`meta`) is current. Noted as an open item. |
-| Torch-dependent tests in the backend's light venv | `.qa-b1/.venv` has no torch (by design — the backend does not need it). | The ensemble arithmetic was verified in the torch venv instead (`qa_ensemble_smoke.py`, max difference `0.0` against a manual weighted mean). |
+| Torch-dependent tests in the backend's light venv | `.qa-b1/.venv` has no torch (by design — the backend does not need it). | The ensemble arithmetic was verified in the torch venv instead (`qa/qa_ensemble_smoke.py`, max difference `0.0` against a manual weighted mean). |
 | Live-inference route (`ENABLE_LIVE_INFERENCE=1`) end-to-end | Needs torch + `data/raw` in the same interpreter; not available in the backend venv. | The route now shares `scripts/ensemble.py` with `generate_pred.py`, so its model resolution is the same code path that was verified. |
 | `models/model_b/c/c_weighted/d` re-evaluation under the new harness | Not needed: `ablation.py` regenerates all rows and was run to completion (82 s). | None. |
 
@@ -1116,13 +1116,13 @@ caller without verification — two small fixes away from being fully provable.*
 
 | File | Covers | Key results |
 |---|---|---|
-| `qa_logic_core.py` → `qa_logic_core.json` | L1→L2 traces, orientation controls, units, polygon vs nearest-cell, summary staleness, temporal index, spatial sanity, temporal structure, model-output sanity, admin joins | 13/13 exact; 54/54 exact; area-weighted gaps to 3.44 mm; summary max 163.2806 vs served 193.96; 87,735/87,735 coordinates; ≥100 mm recall 0.005 |
-| `qa_logic_advisory.py` → `qa_logic_advisory.json` | every threshold at T±ε, 11 one-input perturbations, action coherence, faithfulness guard | all boundaries exact; crop/stage/temp/soil/NDVI/LULC all causal; `is_faithful("…48 hours")` false |
-| `qa_logic_http.py` → `qa_logic_http.json` | identity binding, ambiguity 409, sequence + concurrency isolation, zero-rain reachability, Layer-3 binding, enums/errors | 12/12 identity; 8/8 isolation; 3 Panchayats return exactly 0.0; advisory accepts rainfall 999 and `date=1999-01-01` |
-| `qa_f1_50.py` → `qa_f1_50.json` | heavy-rain failure diagnosis | E at 50 mm: precision 0.438, recall 0.076 |
-| `qa_eval_f1.py` → `qa_f1_50_variants.json` | per-checkpoint fixed + val-calibrated event metrics | E 0.129 / F 0.320 / EF 0.284 vs baseline 0.234 |
-| `qa_blend.py` → `qa_blend.json` | blend/ensemble candidates on val+test | equal-weight E+F dominates the baseline at every metric |
-| `qa_ensemble_smoke.py` | ensemble loader correctness | max difference `0.0` vs the manual weighted mean; single-checkpoint override exact |
+| `qa/qa_logic_core.py` → `qa/qa_logic_core.json` | L1→L2 traces, orientation controls, units, polygon vs nearest-cell, summary staleness, temporal index, spatial sanity, temporal structure, model-output sanity, admin joins | 13/13 exact; 54/54 exact; area-weighted gaps to 3.44 mm; summary max 163.2806 vs served 193.96; 87,735/87,735 coordinates; ≥100 mm recall 0.005 |
+| `qa/qa_logic_advisory.py` → `qa/qa_logic_advisory.json` | every threshold at T±ε, 11 one-input perturbations, action coherence, faithfulness guard | all boundaries exact; crop/stage/temp/soil/NDVI/LULC all causal; `is_faithful("…48 hours")` false |
+| `qa/qa_logic_http.py` → `qa/qa_logic_http.json` | identity binding, ambiguity 409, sequence + concurrency isolation, zero-rain reachability, Layer-3 binding, enums/errors | 12/12 identity; 8/8 isolation; 3 Panchayats return exactly 0.0; advisory accepts rainfall 999 and `date=1999-01-01` |
+| `qa/qa_f1_50.py` → `qa/qa_f1_50.json` | heavy-rain failure diagnosis | E at 50 mm: precision 0.438, recall 0.076 |
+| `qa/qa_eval_f1.py` → `qa/qa_f1_50_variants.json` | per-checkpoint fixed + val-calibrated event metrics | E 0.129 / F 0.320 / EF 0.284 vs baseline 0.234 |
+| `qa/qa_blend.py` → `qa/qa_blend.json` | blend/ensemble candidates on val+test | equal-weight E+F dominates the baseline at every metric |
+| `qa/qa_ensemble_smoke.py` | ensemble loader correctness | max difference `0.0` vs the manual weighted mean; single-checkpoint override exact |
 | `pytest` (`backend/.venv`) | backend behaviour, mapping, aux, contract, new artefact-consistency suite | **53 passed at validation time; 69 after the fixes in §20** |
 
 ### 19.2 Artefacts inspected
@@ -1132,7 +1132,7 @@ caller without verification — two small fixes away from being fully provable.*
 * Layer 3 / backend: `backend/{advisory,main,routes_data,data_store,metrics_loader,live_infer,aux_layers,build_panchayat_index}.py`, `backend/tests/*`
 * Pipeline: `scripts/{config,train,ensemble,ablation,evaluate,layer2_panchayat_mapping,produce_block_rainfall,infer}.py`, `generate_pred.py`
 * Frontend: `src/views/HomePage.tsx`, `src/views/LandingPage.tsx`, `src/components/advisory/AdvisoryPanel.tsx`, `src/components/search/PanchayatSearch.tsx`, `src/components/sidebar/{LeftSidebar,RightSidebar}.tsx`, `src/components/xai/XAIPanel.tsx`, `src/components/modals/ModelModal.tsx`, `src/api/backend.ts`, `src/types/index.ts`
-* Docs: `README.md`, `HANDOVER.md`, `COMPREHENSIVE_QA_TEST_REPORT.md`, `END_TO_END_QA_TEST_PLAN.md`, `backend/README.md`
+* Docs: `README.md`, `docs/HANDOVER.md`, `docs/COMPREHENSIVE_QA_TEST_REPORT.md`, `docs/END_TO_END_QA_TEST_PLAN.md`, `backend/README.md`
 
 ### 19.3 Reproduction commands
 
@@ -1140,11 +1140,11 @@ caller without verification — two small fixes away from being fully provable.*
 # from the repo root (this branch's root IS the worktree that was validated, so
 # the old `cd .qa-b1` prefix is gone; the QA scripts are committed at the root)
 # Layer 1 / Layer 2 logic - needs torch + geopandas (root .venv, README section 5)
-.venv/Scripts/python.exe qa_logic_core.py
+.venv/Scripts/python.exe qa/qa_logic_core.py
 # advisory engine logic - needs the backend deps (fastapi, pydantic)
-backend/.venv/Scripts/python.exe qa_logic_advisory.py
+backend/.venv/Scripts/python.exe qa/qa_logic_advisory.py
 # HTTP / end-to-end - backend must be running on 127.0.0.1:8000
-backend/.venv/Scripts/python.exe qa_logic_http.py
+backend/.venv/Scripts/python.exe qa/qa_logic_http.py
 # test suites
 cd backend && .venv/Scripts/python.exe -m pytest -q          # 69 passed
 cd Frontend && npm run typecheck && npm run build

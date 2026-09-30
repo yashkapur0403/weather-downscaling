@@ -1,7 +1,7 @@
 """QA follow-up: offline dataset / aux / mask checks (no torch needed)."""
 import json, os
 from pathlib import Path
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 os.chdir(HERE)
 
 import numpy as np, pandas as pd
@@ -79,7 +79,7 @@ rec("D-45", "L2-map", "block_rainfall rows == blocks x 122 days", "137006",
     f"{len(b)} rows; unique blocks={b['subdistrict_idx'].nunique()}; dates={b['date'].nunique()}",
     "PASS" if len(b) == 137006 else "FAIL", "", "No route reads this file (N-5).")
 
-out = HERE / "qa_followup.json"
+out = HERE / "qa" / "qa_followup.json"
 out.write_text(json.dumps(R, indent=1))
 print(f"wrote {out} ({len(R)} checks)")
 for x in R:

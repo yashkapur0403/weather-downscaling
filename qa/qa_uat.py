@@ -1,7 +1,7 @@
 """QA: UAT journeys + end-to-end value traces against the live backend."""
 import json, os, urllib.request, urllib.parse, urllib.error
 from pathlib import Path
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 os.chdir(HERE)
 import numpy as np, pandas as pd
 
@@ -155,7 +155,7 @@ rec("INT-3", "integration", "Layer2/aux -> advisory: soil/NDVI/LULC never feed t
     "grep: no backend route references soil_soilgrids/ndvi_monthly/lulc_fractions",
     "PASS", "Medium", "Documented wiring gap (N-1/N-2); advisory evidence.rainfall_mm echoes the caller value.")
 
-out = HERE / "qa_uat.json"
+out = HERE / "qa" / "qa_uat.json"
 out.write_text(json.dumps(R, indent=1))
 print(f"wrote {out} ({len(R)} checks)")
 for x in R:

@@ -178,7 +178,7 @@ def main() -> None:
     print(f"[done] {OUT}\n       {info['features']:,} features | {info['gps']:,} GPs "
           f"| {info['states']} states | {info['size']/1e6:.1f} MB | EPSG:4326")
     print("       Layer 2 is now unblocked: run "
-          "weather-downscaling-main/scripts/layer2_panchayat_mapping.py")
+          "scripts/layer2_panchayat_mapping.py")
 
 
 if __name__ == "__main__":

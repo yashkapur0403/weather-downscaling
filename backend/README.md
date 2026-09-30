@@ -11,7 +11,7 @@ python -m pytest -q tests                              # 69 tests, no network or
 uvicorn app:app --reload --port 8000
 ```
 Frontend: `NEXT_PUBLIC_API_URL=http://localhost:8000` (already the default). The
-`frontend_backend_match.patch` is already applied on this branch, so do **not** re-apply it
+`legacy/frontend_backend_match.patch` is already applied on this branch, so do **not** re-apply it
 (`git apply --check` will fail because the fixes are present by different edits).
 
 ## Routes (all match Frontend/src/types/index.ts)

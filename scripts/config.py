@@ -74,7 +74,7 @@ CHANNELS_DEFAULT = CHANNELS_ALL
 # deccan Layer-1 dataset was preprocessed with the 5-channel baseline
 # (imd_rain, dem, era5_t2m, era5_t2m_max, era5_dewp). Do NOT change this list
 # unless you rebuild data/processed; era5_wind can be evaluated only after a
-# documented re-preprocess (see HANDOVER.md / README limitations).
+# documented re-preprocess (see docs/HANDOVER.md / README limitations).
 
 # ---- ERA5-Land auxiliary data (via Open-Meteo archive API, no auth) --------
 # Hourly ERA5-Land aggregated to daily means/max server-side (physically

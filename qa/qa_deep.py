@@ -1,7 +1,7 @@
 """QA deep round: value analysis + remaining untested paths."""
 import json, os, urllib.request, urllib.parse, urllib.error
 from pathlib import Path
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 os.chdir(HERE)
 import numpy as np, pandas as pd
 
@@ -98,7 +98,7 @@ else:
     rec("VAL-MAP", "value-analysis", "per-date map artefact exists", "present", "absent", "INFO")
 
 # 7. IMD vs CHIRPS correlation (dataset value analysis, needs data.zip-extracted arrays)
-qd = HERE / "qa_processed"
+qd = HERE / "qa" / "qa_processed"
 if (qd / "X_test.npy").exists():
     X = np.load(qd / "X_test.npy"); Y = np.load(qd / "Y_test.npy"); M = np.load(qd / "M_test.npy")
     meta = json.loads((HERE / "data/processed/meta.json").read_text())
@@ -136,7 +136,7 @@ rec("GEO-PREC", "mapping", "geocode precision reported correctly",
     f"no-context lat={rA.get('lat')} prec={rA.get('location_precision')}; with-context lat={rB.get('lat')} prec={rB.get('location_precision')}",
     "INFO", "Medium", "Both return the same admin-centroid coord labelled 'exact' (D-1).")
 
-out = HERE / "qa_deep.json"
+out = HERE / "qa" / "qa_deep.json"
 out.write_text(json.dumps(R, indent=1))
 print(f"wrote {out} ({len(R)})")
 for x in R: print(f"{x['st']:5s} {x['id']:16s} {x['test'][:60]}")

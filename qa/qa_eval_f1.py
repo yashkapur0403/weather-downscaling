@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 sys.path.insert(0, str(HERE / "scripts"))
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
@@ -91,6 +91,6 @@ for name in preds["val"]:
               f"{r['>=10mm']['F1']:6.3f} {r['>=25mm']['F1']:6.3f} {r['>=50mm']['F1']:6.3f} | "
               f"{nom['p']:5.3f} {nom['r']:5.3f} | {d_star:5.1f} {cal['f1']:8.3f}")
 
-json.dump(out, open(HERE / "qa_f1_50_variants.json", "w"), indent=1, default=float)
+json.dump(out, open(HERE / "qa" / "qa_f1_50_variants.json", "w"), indent=1, default=float)
 print("\n-> qa_f1_50_variants.json")
 print("\nNote: d* is the >=50mm DECISION threshold chosen on VAL to maximise VAL F1.")

@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 ROOT = HERE
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "backend"))
@@ -521,5 +521,5 @@ except Exception as e:
 OUT["admin_hierarchy"] = admin_res
 print(json.dumps(admin_res, indent=1))
 
-json.dump(OUT, open(HERE / "qa_logic_core.json", "w"), indent=1, default=str)
+json.dump(OUT, open(HERE / "qa" / "qa_logic_core.json", "w"), indent=1, default=str)
 print("\n-> qa_logic_core.json")

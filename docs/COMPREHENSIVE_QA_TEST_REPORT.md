@@ -27,8 +27,9 @@
 > | **D-4** (`layer2_qc.json` paths from another machine), **D-9** (`DADRA,NAGAR HAVELI,DAMAN & DIU` state-string mismatch) | **open**, low severity |
 >
 > **Path note.** Paths written as `.qa-b1/…` below are the isolated `git worktree` used at test time.
-> The QA evidence has since been committed at the repository root, so read `.qa-b1/qa_*.py` and
-> `.qa-b1/qa_*.json` as `qa_*.py` / `qa_*.json`, and `.qa-b1/backend` as `backend/`.
+> The evidence now lives in this repository under `qa/` (`qa/qa_*.py` with the recorded
+> `qa/qa_*.json` results — moved there from the worktree root, hence the prefix in the paths below),
+> and `.qa-b1/backend` is now just `backend/`.
 > `.qa-b1/_backup_original/` (the pre-fix backup) and the `.log` files are local-only and are
 > gitignored on purpose, so a fresh clone will not have them.
 >
@@ -90,27 +91,30 @@ The 8 "as-run" failures were investigated. **Only 5 are product or deliverable i
 
 | Dimension | Method | Evidence file |
 |---|---|---|
-| Backend API (normal, invalid, boundary, error, security, perf) | 48-case script over live `uvicorn` on `127.0.0.1:8000` | `.qa-b1/qa_blackbox.json` |
-| Data / code white-box | 32-case script over the committed CSV/NPZ/JSON | `.qa-b1/qa_whitebox.json` |
-| Mask / aux / dataset follow-up | 10-case script | `.qa-b1/qa_followup.json` |
-| UAT + E2E + integration | 14-case script (HTTP + source recomputation) | `.qa-b1/qa_uat.json` |
-| Model checkpoint | Torch load + instantiate + `load_state_dict(strict=True)` | `.qa-b1/qa_model.py` output |
-| Layer-1 metrics | Re-ran the checkpoint over `X/Y/M_test` extracted from `data.zip` using the *same* protocol as `evaluate.py`/`train.py` | `.qa-b1/qa_repro_metrics.py` output |
-| Frontend | `npm ci`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run start` + HTTP probes | `Frontend/`, `.qa-b1/frontend.log` |
+| Backend API (normal, invalid, boundary, error, security, perf) | 48-case script over live `uvicorn` on `127.0.0.1:8000` | `qa/qa_blackbox.json` |
+| Data / code white-box | 32-case script over the committed CSV/NPZ/JSON | `qa/qa_whitebox.json` |
+| Mask / aux / dataset follow-up | 10-case script | `qa/qa_followup.json` |
+| UAT + E2E + integration | 14-case script (HTTP + source recomputation) | `qa/qa_uat.json` |
+| Model checkpoint | Torch load + instantiate + `load_state_dict(strict=True)` | `qa/qa_model.py` output |
+| Layer-1 metrics | Re-ran the checkpoint over `X/Y/M_test` extracted from `data.zip` using the *same* protocol as `evaluate.py`/`train.py` | `qa/qa_repro_metrics.py` output |
+| Frontend | `npm ci`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run start` + HTTP probes | `Frontend/` |
 | Regression | Re-ran plan's documented cases and compared | §9 |
 
 Reproduction commands:
 
 ```bash
 # live server (already running)
-cd .qa-b1/backend && ../.venv/Scripts/python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
-# suites
-cd .qa-b1 && ./.venv/Scripts/python.exe qa_blackbox.py && ./.venv/Scripts/python.exe qa_whitebox.py \
-  && ./.venv/Scripts/python.exe qa_followup.py && ./.venv/Scripts/python.exe qa_uat.py
-# model + metrics (torch venv)
-../.venv/Scripts/python.exe qa_model.py
-../.venv/Scripts/python.exe qa_repro_metrics.py
+cd backend && ../.venv/Scripts/python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
+# suites (run from the repository root; these need the backend deps: fastapi/pydantic/httpx/pandas)
+./.venv/Scripts/python.exe qa/qa_blackbox.py && ./.venv/Scripts/python.exe qa/qa_whitebox.py \
+  && ./.venv/Scripts/python.exe qa/qa_followup.py && ./.venv/Scripts/python.exe qa/qa_uat.py
+# model + metrics (need torch; see requirements.txt)
+./.venv/Scripts/python.exe qa/qa_model.py
+./.venv/Scripts/python.exe qa/qa_repro_metrics.py
 ```
+
+`qa/qa_logic_*.py` and `qa/qa_ensemble_smoke.py` need torch (they load the checkpoints); `qa/qa_logic_http.py`
+also needs the live server and `pandas`. Nothing in `qa/` is imported by the pipeline or the app.
 
 ---
 
@@ -376,11 +380,11 @@ No hallucination or unsupported-recommendation defect was found in the reachable
 ### 7.1 Confirmed bugs (functional)
 
 **BUG-01 — Ambiguous name-only lookup silently returns the wrong Panchayat — High.**
-`POST /auth/ {"panchayat_name":"ALURU","date":"2022-07-10"}` returns **3.15 mm** (Guntur/PONNUR `ALURU`, pid 200620), not the Udupi `ALURU` (50.49). The answer text says "Estimated rainfall for ALURU" with no disambiguation. Root cause: `backend/data_store.py::Store.find()` returns `h.iloc[0]`. Verification: 4 rows named exactly `ALURU`; **8,404 duplicated names cover 26,666 rows**. Adding `district`/`block`/`state` resolves correctly (50.49). Evidence: `qa_blackbox.json` BB-13. *Impact: a judge searching by name alone for a duplicated name gets another district's number.*
+`POST /auth/ {"panchayat_name":"ALURU","date":"2022-07-10"}` returns **3.15 mm** (Guntur/PONNUR `ALURU`, pid 200620), not the Udupi `ALURU` (50.49). The answer text says "Estimated rainfall for ALURU" with no disambiguation. Root cause: `backend/data_store.py::Store.find()` returns `h.iloc[0]`. Verification: 4 rows named exactly `ALURU`; **8,404 duplicated names cover 26,666 rows**. Adding `district`/`block`/`state` resolves correctly (50.49). Evidence: `qa/qa_blackbox.json` BB-13. *Impact: a judge searching by name alone for a duplicated name gets another district's number.*
 Repro: `curl -X POST :8000/auth/ -H 'Content-Type: application/json' -d '{"panchayat_name":"ALURU","date":"2022-07-10"}'`
 
 **BUG-02 — `GET /` reports `panchayats_loaded: null` on a cold server — Medium.**
-A freshly-booted process returns `null` until some other endpoint populates the store; a warm call returns `86103`. Root cause: the `register()` health handler reads the cached `State.store` instead of calling `store()`. Evidence: `qa_blackbox.json` BB-01. The plan's `TC-03` expectation of `86103` is only true warm — the expectation, not the warm value, was wrong.
+A freshly-booted process returns `null` until some other endpoint populates the store; a warm call returns `86103`. Root cause: the `register()` health handler reads the cached `State.store` instead of calling `store()`. Evidence: `qa/qa_blackbox.json` BB-01. The plan's `TC-03` expectation of `86103` is only true warm — the expectation, not the warm value, was wrong.
 
 ### 7.2 Data / deliverable issues
 
@@ -579,13 +583,13 @@ Rule thresholds and bands; the faithfulness guard and template/rules fallbacks; 
 
 | File | Contents |
 |---|---|
-| `.qa-b1/qa_blackbox.py` / `qa_blackbox.json` | 48 black-box API cases over live HTTP |
-| `.qa-b1/qa_whitebox.py` / `qa_whitebox.json` | 32 data/code white-box cases |
-| `.qa-b1/qa_followup.py` / `qa_followup.json` | 10 mask/aux/dataset cases (D-11 root cause) |
-| `.qa-b1/qa_uat.py` / `qa_uat.json` | 14 UAT + E2E + integration cases |
-| `.qa-b1/qa_deep.py` / `qa_deep.json` | 12 round-2 value-analysis / remaining-path cases |
-| `.qa-b1/qa_model.py` | checkpoint load / channel order / param count |
-| `.qa-b1/qa_repro_metrics.py` | Layer-1 metric reproduction from `data.zip` |
+| `qa/qa_blackbox.py` / `qa/qa_blackbox.json` | 48 black-box API cases over live HTTP |
+| `qa/qa_whitebox.py` / `qa/qa_whitebox.json` | 32 data/code white-box cases |
+| `qa/qa_followup.py` / `qa/qa_followup.json` | 10 mask/aux/dataset cases (D-11 root cause) |
+| `qa/qa_uat.py` / `qa/qa_uat.json` | 14 UAT + E2E + integration cases |
+| `qa/qa_deep.py` / `qa/qa_deep.json` | 12 round-2 value-analysis / remaining-path cases |
+| `qa/qa_model.py` | checkpoint load / channel order / param count |
+| `qa/qa_repro_metrics.py` | Layer-1 metric reproduction from `data.zip` |
 | `.qa-b1/uvicorn.log`, `.qa-b1/frontend.log` | server logs |
 | `Frontend/` | npm ci / typecheck / lint / build / serve |
 
@@ -665,7 +669,7 @@ heavy-rain metrics are materially improved, and Layer 3 now uses the auxiliary l
 items are the documented F1≥50 mm limitation and un-committed large data.
 
 *Repository state at the time of writing: branch `fix/qa-hardening` @ `3395023`. Evidence: the
-`qa_*.json` files at the repository root, the local pre-fix backup `_backup_original/` (not committed —
+`qa/qa_*.json` files at the repository root, the local pre-fix backup `_backup_original/` (not committed —
 gitignored), and the inline verification outputs in §14.1. The branch has since been pushed and the
 findings re-checked — see the status note at the top.*
 

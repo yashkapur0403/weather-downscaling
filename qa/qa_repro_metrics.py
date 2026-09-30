@@ -6,8 +6,8 @@ scripts/train.py::metrics exactly (same masking, thresholds, units).
 import json, os, sys, zipfile
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent                      # weather-downscaling/
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
+ROOT = HERE                              # repo root (data.zip is here)
 os.chdir(HERE)
 sys.path.insert(0, str(HERE / "scripts"))
 
@@ -47,7 +47,7 @@ def evaluate_model(pred_mm, Y, M):
     return res
 
 # ---- extract test arrays from data.zip (repo root) ----
-out_dir = HERE / "qa_processed"
+out_dir = HERE / "qa" / "qa_processed"
 out_dir.mkdir(exist_ok=True)
 zpath = ROOT / "data.zip"
 need = ["data/processed/X_test.npy", "data/processed/Y_test.npy",

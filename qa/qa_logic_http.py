@@ -13,7 +13,7 @@ import httpx
 import numpy as np
 import pandas as pd
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 BASE = "http://127.0.0.1:8000"
 DATE = "2022-07-10"
 OUT = {}
@@ -229,5 +229,5 @@ enums["health"] = c.get("/").status_code
 OUT["enums_errors"] = enums
 print(json.dumps(enums, indent=1, default=str))
 
-json.dump(OUT, open(HERE / "qa_logic_http.json", "w"), indent=1, default=str)
+json.dump(OUT, open(HERE / "qa" / "qa_logic_http.json", "w"), indent=1, default=str)
 print("\n-> qa_logic_http.json")

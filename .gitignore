@@ -17,7 +17,7 @@ data_pilot_westernghats_LEGACY.zip
 outputs/layer2/panchayat_weather.csv
 outputs/layer2/panchayat_weather.geojson
 
-# --- Frontend/backend app (weather-downscaling-main/) ------------------------
+# --- Frontend/backend app ----------------------------------------------------
 .env
 node_modules/
 
@@ -42,6 +42,7 @@ Thumbs.db
 # and pre-fix backups.
 .qa-b1/
 qa_processed/
+qa/qa_processed/
 _backup_original/
 .pytest_cache/
 *.log

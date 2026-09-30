@@ -22,7 +22,7 @@ The frontend runs at **http://localhost:3000**.
 The frontend expects a FastAPI backend at `http://localhost:8000`.
 
 ```bash
-# From the repo root (the app lives at backend/, not weather-downscaling-main/)
+# From the repo root (the app lives at backend/; legacy/ is an archive, not a runtime path)
 cd backend
 pip install -r requirements.txt
 uvicorn app:app --reload --port 8000

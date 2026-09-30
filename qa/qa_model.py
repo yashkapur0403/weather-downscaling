@@ -2,7 +2,7 @@
 import json, sys, os
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 os.chdir(HERE)
 sys.path.insert(0, str(HERE / "scripts"))
 

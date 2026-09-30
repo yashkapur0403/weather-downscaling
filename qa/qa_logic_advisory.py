@@ -11,7 +11,7 @@ import json
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parent.parent   # repo root (this script lives in qa/)
 sys.path.insert(0, str(HERE / "backend"))
 import advisory as A  # noqa: E402
 
@@ -189,5 +189,5 @@ OUT["faithfulness_guard"] = guard
 print("\n== faithfulness guard ==")
 print(json.dumps(guard, indent=1, default=str))
 
-json.dump(OUT, open(HERE / "qa_logic_advisory.json", "w"), indent=1, default=str)
+json.dump(OUT, open(HERE / "qa" / "qa_logic_advisory.json", "w"), indent=1, default=str)
 print("\n-> qa_logic_advisory.json")
