@@ -1,6 +1,4 @@
-from pathlib import Path
-
-content = r'''"""
+"""
 Ablation study: which information actually helps Layer 1?
 
 Rows (each trained/evaluated on the SAME dates - the processed dataset):
@@ -528,8 +526,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-'''
-
-path = Path("/mnt/data/ablation.py")
-path.write_text(content, encoding="utf-8")
-print(f"Created: {path}")

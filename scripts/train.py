@@ -6,7 +6,8 @@ Key scientific properties:
     baseline (channel 'imd_rain'), i.e. pred = baseline + residual. It can
     therefore never do worse than the baseline at initialization.
   * Model selection strictly on VALIDATION MAE; test is never touched.
-  * Loss options: mae | weighted (heavy-rain emphasis) | log1p.
+    * Loss options: mae | weighted | log1p | combined | extreme | log1p_combined
+        | log1p_combined_extreme.
   * Strict time-based splits produced by preprocess.py (no shuffling across time).
 
 Run:
@@ -126,6 +127,94 @@ def make_loss(name: str, rain_scale: float):
             yl = torch.log1p(y.clamp(min=0) * rain_scale)
             return ((pl - yl).abs() * m).sum() / m.sum().clamp(min=1.0)
         return loss
+    if name == "combined":
+        # Blend of plain MAE and a gently-ramped heavy-rain weighted MAE.
+        # Unlike 'weighted' (hard threshold x3), weights ramp linearly from
+        # config.COMBINED_MULT_LO at COMBINED_RAIN_MM to COMBINED_MULT_HI at
+        # COMBINED_RAIN_MM_H, then plain MAE component moderates the total
+        # signal so rare events don't overwhelm common light-rain gradients.
+        thr_lo = config.COMBINED_RAIN_MM / rain_scale
+        thr_hi = config.COMBINED_RAIN_MM_H / rain_scale
+        mult_lo = config.COMBINED_MULT_LO
+        mult_hi = config.COMBINED_MULT_HI
+        alpha = config.COMBINED_ALPHA  # weight on plain MAE component
+
+        def loss(p, y, m):
+            abs_err = (p - y).abs()
+            plain_mae = (abs_err * m).sum() / m.sum().clamp(min=1.0)
+            # linear ramp: weight 1.0 below thr_lo, ramps to mult_hi at thr_hi
+            ramp = torch.clamp(
+                1.0 + (y - thr_lo) / (thr_hi - thr_lo + 1e-8) * (mult_hi - 1.0),
+                min=1.0, max=mult_hi,
+            )
+            w = m * ramp
+            weighted_mae = (abs_err * w).sum() / w.sum().clamp(min=1.0)
+            return alpha * plain_mae + (1.0 - alpha) * weighted_mae
+        return loss
+    if name == "extreme":
+        # Plain MAE everywhere + large extra weight for extreme events (>= 50 mm).
+        # The spike term forces the model not to completely miss events that
+        # the baseline also underestimates, without exploding normal-rain MAE.
+        thr_e = config.EXTREME_THR_MM / rain_scale
+        mult_e = config.EXTREME_MULT
+
+        def loss(p, y, m):
+            abs_err = (p - y).abs()
+            plain_mae = (abs_err * m).sum() / m.sum().clamp(min=1.0)
+            extreme_mask = (y >= thr_e).float() * m
+            n_ext = extreme_mask.sum().clamp(min=1.0)
+            extreme_term = (abs_err * extreme_mask).sum() / n_ext
+            return plain_mae + mult_e * extreme_term
+        return loss
+    if name == "log1p_combined":
+        # MAE in log1p space (relative error emphasis) + the combined ramp
+        # weight from config.  Combines E + F ideas: log1p handles the
+        # light-rain / heavy-rain dynamic range, while the ramp up-weights
+        # heavy events in log space too.
+        thr_lo = config.COMBINED_RAIN_MM / rain_scale
+        thr_hi = config.COMBINED_RAIN_MM_H / rain_scale
+        mult_lo = config.COMBINED_MULT_LO
+        mult_hi = config.COMBINED_MULT_HI
+        alpha = config.COMBINED_ALPHA
+
+        def loss(p, y, m):
+            pl = torch.log1p(p.clamp(min=0) * rain_scale)
+            yl = torch.log1p(y.clamp(min=0) * rain_scale)
+            abs_err = (pl - yl).abs()
+            plain_mae = (abs_err * m).sum() / m.sum().clamp(min=1.0)
+            ramp = torch.clamp(
+                1.0 + (y - thr_lo) / (thr_hi - thr_lo + 1e-8) * (mult_hi - 1.0),
+                min=1.0, max=mult_hi,
+            )
+            w = m * ramp
+            weighted_mae = (abs_err * w).sum() / w.sum().clamp(min=1.0)
+            return alpha * plain_mae + (1.0 - alpha) * weighted_mae
+        return loss
+    if name == "log1p_combined_extreme":
+        thr_lo = config.COMBINED_RAIN_MM / rain_scale
+        thr_hi = config.COMBINED_RAIN_MM_H / rain_scale
+        thr_extreme = config.EXTREME_THR_MM / rain_scale
+        alpha = config.COMBINED_ALPHA
+
+        def loss(p, y, m):
+            pl = torch.log1p(p.clamp(min=0) * rain_scale)
+            yl = torch.log1p(y.clamp(min=0) * rain_scale)
+            abs_err = (pl - yl).abs()
+            plain_mae = (abs_err * m).sum() / m.sum().clamp(min=1.0)
+            ramp = torch.clamp(
+                1.0 + (y - thr_lo) / (thr_hi - thr_lo + 1e-8)
+                * (config.COMBINED_MULT_HI - 1.0),
+                min=1.0, max=config.COMBINED_MULT_HI,
+            )
+            weights = m * ramp
+            weighted_mae = ((abs_err * weights).sum()
+                            / weights.sum().clamp(min=1.0))
+            extreme_mask = (y >= thr_extreme).float() * m
+            extreme_mae = ((abs_err * extreme_mask).sum()
+                           / extreme_mask.sum().clamp(min=1.0))
+            return (alpha * plain_mae + (1.0 - alpha) * weighted_mae
+                    + config.EXTREME_MULT * extreme_mae)
+        return loss
     raise ValueError(f"unknown loss {name}")
 
 
@@ -175,7 +264,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--channels", default=",".join(config.CHANNELS_DEFAULT),
                     help="comma list, subset of meta.channels")
-    ap.add_argument("--loss", default="mae", choices=["mae", "weighted", "log1p"])
+    ap.add_argument("--loss", default="mae",
+                    choices=["mae", "weighted", "log1p",
+                             "combined", "extreme", "log1p_combined",
+                             "log1p_combined_extreme"])
     ap.add_argument("--residual", type=int, default=1,
                     help="1 = learn correction to bilinear baseline (default), "
                          "0 = predict the full field")

@@ -1,6 +1,4 @@
-from pathlib import Path
-
-content = r'''"""
+﻿"""
 Evaluate baselines vs models: MAE / RMSE / corr, heavy-rain event metrics,
 % improvement over baseline, difference maps, and machine-readable prediction
 files for Layer 2.
@@ -1248,8 +1246,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-'''
 
-path = Path("/mnt/data/evaluate.py")
-path.write_text(content, encoding="utf-8")
-print(path)

@@ -157,6 +157,28 @@ ELEV_MAX = 3000.0  # m clip; covers the Deccan box (Western Ghats max ~2695 m)
 WEIGHT_RAIN_MM = 25.0  # pixels with target >= this get extra weight
 WEIGHT_MULT = 3.0      # weight multiplier for heavy-rain pixels
 
+# ---- Heavy-rain preservation experiments (E / F / G / H) ------------------
+# Model E: log1p target transform – train in log1p(mm) space, evaluate in mm.
+#   No additional constants needed (uses rain_scale).
+
+# Model F: combined MAE + gentle heavy-rain weighted term.
+#   Loss = alpha * MAE_plain + (1 - alpha) * MAE_weighted
+#   The weight multiplier is gentler than Cw (1.5x vs 3x at 25 mm,
+#   ramps up smoothly so the gradient signal is not dominated by rare events).
+COMBINED_ALPHA      = 0.6    # weight on the plain MAE component
+COMBINED_RAIN_MM    = 10.0   # lower threshold (mm) for gentle ramp
+COMBINED_RAIN_MM_H  = 50.0   # upper threshold (mm): full multiplier applied here
+COMBINED_MULT_LO    = 1.5    # multiplier at COMBINED_RAIN_MM
+COMBINED_MULT_HI    = 4.0    # multiplier at COMBINED_RAIN_MM_H (linear ramp)
+
+# Model G: extreme-rain extra multiplier on top of plain MAE.
+#   Pixels with Y >= EXTREME_THR_MM get an extra weight boost.
+EXTREME_THR_MM  = 50.0   # mm threshold for "extreme" events
+EXTREME_MULT    = 8.0    # additional weight for extreme pixels
+
+# Model H: log1p target + combined loss (combination of E and F).
+#   Uses COMBINED_* constants above.
+
 
 def region_roi(name: str | None = None) -> dict:
     """ROI dict for a named region (default REGION_DEFAULT)."""
