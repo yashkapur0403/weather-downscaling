@@ -138,7 +138,7 @@ git branch --show-current # must print b1 (or HEAD detached at b1)
 
 > As of the QA-hardening merge, `main` carries the app too, so `backend/` and `Frontend/` at the repo
 > root are the real ones. If you see no `backend/` at all, you are on an older branch.
-> `legacy/weather-downscaling-main/` is the superseded archive kept only for the unique data it
+> `legacy/old-app-snapshot/` (formerly `weather-downscaling-main/`) is the superseded archive kept only for the unique data it
 > holds — it is not a second application.
 
 ### 2.3 Backend install
