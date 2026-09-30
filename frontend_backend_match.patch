@@ -1,0 +1,106 @@
+diff --git a/src/api/backend.ts b/src/api/backend.ts
+index b6bc2f6..2bfe099 100644
+--- a/src/api/backend.ts
++++ b/src/api/backend.ts
+@@ -67,18 +67,26 @@ export async function fetchMetrics(): Promise<ModelMetrics> {
+   return apiFetch<ModelMetrics>('/api/metrics');
+ }
+ 
+-// ── Crop advisory (stub — waiting for backend /api/advisory endpoint) ─────────
++// ── Crop advisory (GET /api/advisory: rule engine + Groq wording + Sarvam) ────
++// Sends the panchayat's downscaled values so the backend does not need to look them up again.
+ export async function fetchAdvisory(
+-  panchayatId: number,
++  panchayat: Panchayat,
+   crop: CropType,
+   stage: CropStage,
+   irrigationAvailable?: boolean,
++  lang: string = 'en-IN',
+ ): Promise<AdvisoryResponse> {
+   const params = new URLSearchParams({
+-    panchayat_id: String(panchayatId),
++    panchayat_id: String(panchayat.panchayat_id),
++    panchayat_name: panchayat.panchayat_name,
+     crop,
+     stage,
++    rainfall_mm: String(panchayat.rainfall_mm),
++    date: panchayat.date ?? '',
++    lang,
+   });
++  if (panchayat.temperature_c != null) params.set('temperature_c', String(panchayat.temperature_c));
++  if (panchayat.humidity_pct != null) params.set('humidity_pct', String(panchayat.humidity_pct));
+   if (irrigationAvailable !== undefined) {
+     params.set('irrigation_available', String(irrigationAvailable));
+   }
+diff --git a/src/components/advisory/AdvisoryPanel.tsx b/src/components/advisory/AdvisoryPanel.tsx
+index 512ed2b..f83730d 100644
+--- a/src/components/advisory/AdvisoryPanel.tsx
++++ b/src/components/advisory/AdvisoryPanel.tsx
+@@ -71,7 +71,7 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
+     setLoading(true);
+     setError(null);
+     try {
+-      const res = await fetchAdvisory(selected.panchayat_id, crop, stage);
++      const res = await fetchAdvisory(selected, crop, stage);
+       setAdvisory(res);
+     } catch {
+       // Backend /api/advisory not available — fall back to local rules
+diff --git a/src/components/sidebar/RightSidebar.tsx b/src/components/sidebar/RightSidebar.tsx
+index 92e44d0..0fe954b 100644
+--- a/src/components/sidebar/RightSidebar.tsx
++++ b/src/components/sidebar/RightSidebar.tsx
+@@ -70,17 +70,17 @@ export function RightSidebar({
+         <div className="grid grid-cols-3 gap-2">
+           <div className="metric-panel">
+             <Thermometer className="w-3.5 h-3.5 mb-2" style={{ color: 'var(--heat-3)' }} />
+-            <p className="metric-number text-lg">{selected.temperature_c.toFixed(1)}°</p>
++            <p className="metric-number text-lg">{selected.temperature_c != null ? `${selected.temperature_c.toFixed(1)}°` : '—'}</p>
+             <p className="text-[0.55rem] mt-0.5" style={{ color: 'var(--muted)' }}>Temperature</p>
+           </div>
+           <div className="metric-panel">
+             <Droplets className="w-3.5 h-3.5 mb-2" style={{ color: 'var(--heat-1)' }} />
+-            <p className="metric-number text-lg">{selected.humidity_pct}%</p>
++            <p className="metric-number text-lg">{selected.humidity_pct != null ? `${selected.humidity_pct}%` : '—'}</p>
+             <p className="text-[0.55rem] mt-0.5" style={{ color: 'var(--muted)' }}>Humidity</p>
+           </div>
+           <div className="metric-panel">
+             <Mountain className="w-3.5 h-3.5 mb-2" style={{ color: 'var(--reference)' }} />
+-            <p className="metric-number text-lg">{selected.elevation_m}</p>
++            <p className="metric-number text-lg">{selected.elevation_m ?? '—'}</p>
+             <p className="text-[0.55rem] mt-0.5" style={{ color: 'var(--muted)' }}>Elevation m</p>
+           </div>
+         </div>
+diff --git a/src/components/xai/XAIPanel.tsx b/src/components/xai/XAIPanel.tsx
+index a17df20..ca755ab 100644
+--- a/src/components/xai/XAIPanel.tsx
++++ b/src/components/xai/XAIPanel.tsx
+@@ -51,9 +51,9 @@ function buildRequest(p: Panchayat, metrics: ModelMetrics | null, question?: str
+     model: {
+       name: metrics?.selected_model.name ?? 'U-Net Model D (DEM + ERA5)',
+       channels: metrics?.channels ?? DEFAULT_CHANNELS,
+-      test_mae_mm: metrics?.selected_model.test_mae_mm ?? 6.45,
+-      baseline_mae_mm: metrics?.baseline.test_mae_mm ?? 7.67,
+-      mae_improvement_pct: metrics?.mae_improvement_pct ?? 15.9,
++      test_mae_mm: metrics?.selected_model.test_mae_mm ?? null,
++      baseline_mae_mm: metrics?.baseline.test_mae_mm ?? null,
++      mae_improvement_pct: metrics?.mae_improvement_pct ?? null,
+       reference_product: metrics?.reference_product ?? 'CHIRPS v2.0',
+     },
+     question: question ?? null,
+diff --git a/src/types/index.ts b/src/types/index.ts
+index 5b9c2a1..51d9e44 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -34,9 +34,9 @@ export interface Panchayat {
+   state: string;
+   date: string;           // "2022-07-10"
+   rainfall_mm: number;
+-  temperature_c: number;
+-  humidity_pct: number;
+-  elevation_m: number;
++  temperature_c: number | null;
++  humidity_pct: number | null;
++  elevation_m: number | null;
+   n_cells: number;
+   mapping_method: 'direct_grid' | 'area_weighted' | 'nearest_fallback';
+   fallback_distance_m: number | null;

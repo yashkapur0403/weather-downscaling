@@ -1,0 +1,87 @@
+{
+ "region": "deccan",
+ "errors": [],
+ "processed": {
+  "meta": {
+   "region": "deccan",
+   "dates": 610,
+   "channels": [
+    "imd_rain",
+    "dem",
+    "era5_t2m",
+    "era5_t2m_max",
+    "era5_dewp"
+   ],
+   "rain_scale_mm": 100.0,
+   "elev_scale_m": 1222.6514892578125
+  },
+  "splits": {
+   "train": {
+    "shape": [
+     366,
+     5,
+     285,
+     200
+    ],
+    "days": 366
+   },
+   "val": {
+    "shape": [
+     122,
+     5,
+     285,
+     200
+    ],
+    "days": 122
+   },
+   "test": {
+    "shape": [
+     122,
+     5,
+     285,
+     200
+    ],
+    "days": 122
+   }
+  }
+ },
+ "aux": {
+  "admin": {
+   "cells": 47250,
+   "subdistricts_hit": 1123
+  },
+  "soil": {
+   "points": 1890,
+   "properties": [
+    "sand",
+    "clay",
+    "ocd",
+    "phh2o",
+    "bdod"
+   ],
+   "missing_pct_per_property": {
+    "sand": 8.84,
+    "clay": 8.84,
+    "ocd": 8.84,
+    "phh2o": 8.84,
+    "bdod": 9.42
+   }
+  },
+  "ndvi": {
+   "months": 20,
+   "missing_pct": 8.04
+  },
+  "lulc": {
+   "cells": 47250,
+   "coverage_pct": 97.14
+  }
+ },
+ "wind_and_soilmoisture": {
+  "wind": {
+   "days": 610,
+   "nan_pct": 0.0,
+   "fully_missing_days": 0
+  }
+ },
+ "ok": true
+}

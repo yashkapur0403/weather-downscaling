@@ -1,0 +1,40 @@
+# --- ML pipeline (root) ------------------------------------------------------
+# Raw downloads and big arrays: reproducible via scripts (HANDOVER.md section 6)
+data/raw/
+data/processed/*.npy
+prediction/
+
+# Tracked small artifacts (whitelisted by NOT ignoring them):
+#  - data/processed/meta.json (dataset provenance/contract)
+#  - data/aux_data/**.npz + build_summary (finished small aux layers, ~2 MB total)
+#  - data/reports/* (data dictionary, coverage, missingness, verification)
+# The 12 MB admin geojson master layer is regenerable from GADM zips -> ignored
+data/aux_data/admin/*.geojson
+data.zip
+data_pilot_westernghats_LEGACY.zip
+
+# Large Layer 2 generated dataset products (>100MB, exceeded GitHub limit)
+outputs/layer2/panchayat_weather.csv
+outputs/layer2/panchayat_weather.geojson
+
+# --- Frontend/backend app (weather-downscaling-main/) ------------------------
+.env
+node_modules/
+
+# --- Environments & caches ---------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# --- OS / editor -------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+**/.env
+**/.env.*
+!**/.env.example
+
+**/.env
+**/.env.*
