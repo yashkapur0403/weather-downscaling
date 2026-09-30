@@ -1,0 +1,505 @@
+[
+ {
+  "id": "BB-01",
+  "cat": "health",
+  "test": "GET / cold start (server just booted)",
+  "exp": "panchayats_loaded=86103",
+  "act": "panchayats_loaded=None",
+  "st": "FAIL",
+  "sev": "Medium",
+  "note": "handler reads cached S.store instead of store(); cold process reports null"
+ },
+ {
+  "id": "BB-02",
+  "cat": "health",
+  "test": "GET / after another call (warm)",
+  "exp": "86103",
+  "act": 86103,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-03",
+  "cat": "health",
+  "test": "GET /health",
+  "exp": "\"status\":\"ok\"",
+  "act": "ok",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-04",
+  "cat": "search",
+  "test": "GET /api/panchayats?q=kundapura",
+  "exp": "real rows, real mapping_method",
+  "act": "5 rows; last=ALURU direct_grid n_cells=2 mean=12.13",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-05",
+  "cat": "search",
+  "test": "GET /api/panchayats without q",
+  "exp": "422",
+  "act": 422,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-06",
+  "cat": "search",
+  "test": "GET /api/panchayats?limit=100 (max 50)",
+  "exp": "422",
+  "act": 422,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-07",
+  "cat": "search",
+  "test": "unmapped Panchayat hidden (KANNEGANTIVARIPALEM)",
+  "exp": "[]",
+  "act": [],
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-08",
+  "cat": "search",
+  "test": "substring matching q=ALLAMUDI",
+  "exp": "matches CHEMALLAMUDI by substring (unmapped ALLAMUDI itself hidden)",
+  "act": [
+   "CHEMALLAMUDI"
+  ],
+  "st": "INFO",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-09",
+  "cat": "geocode",
+  "test": "ALURU/Udupi coordinates",
+  "exp": "{\"lat\":13.679452,\"lon\":74.742466,\"location_precision\":\"exact\"}",
+  "act": {
+   "lat": 13.679452,
+   "lon": 74.742466,
+   "location_precision": "exact"
+  },
+  "st": "PASS",
+  "sev": "",
+  "note": "coordinate is the KUNDAPURA block centroid; 'exact' is nominal (D-1)"
+ },
+ {
+  "id": "BB-10",
+  "cat": "geocode",
+  "test": "unknown Panchayat",
+  "exp": 404,
+  "act": 404,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-11",
+  "cat": "weather",
+  "test": "GET /api/weather for ALURU",
+  "exp": "non-null T/RH/elevation + source labels",
+  "act": "T=23.8 RH=93 elev=17.0 src=Open-Topo-Data (SRTM 90 m) err=None (895ms)",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-12",
+  "cat": "auth",
+  "test": "POST /auth/ ALURU with full admin context",
+  "exp": "rainfall 50.49 + real T/RH/elevation",
+  "act": "rain=50.49 T=23.8 RH=93 elev=17.0 prec=exact src=U-Net prediction grid (prediction_test.n (290ms)",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-13",
+  "cat": "auth",
+  "test": "POST /auth/ name-only ALURU (4 Panchayats share this name)",
+  "exp": "must not silently return a different Panchayat",
+  "act": "rainfall=3.15 (Udupi ALURU = 50.49); answer='Estimated rainfall for ALURU on 2022-07-10: 3.1 mm/day (source: U-Net '",
+  "st": "FAIL",
+  "sev": "High",
+  "note": "Store.find() returns iloc[0]; 8,404 duplicated names covering 26,666 rows"
+ },
+ {
+  "id": "BB-14",
+  "cat": "auth",
+  "test": "POST /auth/ outside model domain (lat=40)",
+  "exp": 422,
+  "act": 422,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-15a",
+  "cat": "auth",
+  "test": "date outside committed range (2021-01-01)",
+  "exp": 422,
+  "act": 422,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-15b",
+  "cat": "auth",
+  "test": "date outside committed range (2022-10-01)",
+  "exp": 422,
+  "act": 422,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-16",
+  "cat": "auth",
+  "test": "malformed JSON body",
+  "exp": "4xx",
+  "act": 422,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-17",
+  "cat": "auth",
+  "test": "masked (sea/excluded) cell Panchayat MANDURIVARIPALEM",
+  "exp": "422, never a fake value",
+  "act": {
+   "detail": "model output is not finite at this cell (sea / excluded cell)"
+  },
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-18",
+  "cat": "auth",
+  "test": "Panchayat with no coordinates (AMBOLI)",
+  "exp": "422",
+  "act": {
+   "detail": "Cannot produce a rainfall value: no coordinates for this panchayat (run build_panchayat_index.py). Available dates: 2022-06-01 to 2022-09-30."
+  },
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BB-19",
+  "cat": "metrics",
+  "test": "GET /api/metrics",
+  "exp": "D=8.167 / baseline=9.603 / +15.0% / 117,329 params",
+  "act": "8.167 / 9.603 / 15.0 / 117,329 (9ms)",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-70",
+  "cat": "advisory",
+  "test": "advisory band for rainfall=70",
+  "exp": "severity=alert, risk_level=very_heavy, evidence=70",
+  "act": "severity=alert, risk_level=very_heavy, evidence=70.0, src=template",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-50.49",
+  "cat": "advisory",
+  "test": "advisory band for rainfall=50.49",
+  "exp": "severity=warning, risk_level=very_heavy, evidence=50.49",
+  "act": "severity=warning, risk_level=very_heavy, evidence=50.49, src=template",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-30",
+  "cat": "advisory",
+  "test": "advisory band for rainfall=30",
+  "exp": "severity=warning, risk_level=heavy, evidence=30",
+  "act": "severity=warning, risk_level=heavy, evidence=30.0, src=template",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-12",
+  "cat": "advisory",
+  "test": "advisory band for rainfall=12",
+  "exp": "severity=info, risk_level=moderate, evidence=12",
+  "act": "severity=info, risk_level=moderate, evidence=12.0, src=template",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-2",
+  "cat": "advisory",
+  "test": "advisory band for rainfall=2",
+  "exp": "severity=watch, risk_level=no_rain, evidence=2",
+  "act": "severity=watch, risk_level=no_rain, evidence=2.0, src=template",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-NONE",
+  "cat": "advisory",
+  "test": "advisory without required rainfall_mm",
+  "exp": 422,
+  "act": 422,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-BAD",
+  "cat": "advisory",
+  "test": "advisory with invalid crop",
+  "exp": 422,
+  "act": 422,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-LANG",
+  "cat": "advisory",
+  "test": "advisory with unsupported lang",
+  "exp": 422,
+  "act": 422,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-SENS",
+  "cat": "advisory",
+  "test": "advisory changes when rainfall changes (5 -> 70)",
+  "exp": "different severity and different actions",
+  "act": "severity info -> alert; 2 vs 3 actions",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ADV-ECHO",
+  "cat": "advisory",
+  "test": "crop/stage echoed back",
+  "exp": "rice / flowering",
+  "act": "rice / flowering",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "XAI-ST",
+  "cat": "xai",
+  "test": "GET /api/explain/status",
+  "exp": "enabled=false, provider=groq",
+  "act": {
+   "enabled": false,
+   "provider": "groq",
+   "model": "openai/gpt-oss-120b"
+  },
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "XAI-01",
+  "cat": "xai",
+  "test": "POST /api/explain without key",
+  "exp": "provider=rules, factors only for trained channels, 50.5 in summary",
+  "act": "provider=rules factors=['IMD coarse rainfall (0.25\u00b0)', 'Elevation (SRTM DEM)', 'Moisture (ERA5 dewpoint)', 'Temperature (ERA5 T2m)'] summary='50.5 mm/day estimated for ALURU on 2022-07-10.'",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "XAI-02",
+  "cat": "xai",
+  "test": "explain with question, no key",
+  "exp": "non-empty answer explaining unavailability",
+  "act": "None",
+  "st": "FAIL",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "XAI-03",
+  "cat": "xai",
+  "test": "all factor weights within [0,1]",
+  "exp": "all valid",
+  "act": true,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "XAI-04",
+  "cat": "xai",
+  "test": "explain with question (no key)",
+  "exp": "non-empty answer",
+  "act": "The language model is unavailable or its answer could not be verified against th",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "BLK-01",
+  "cat": "advisory",
+  "test": "POST /api/advisory/block (2 panchayats)",
+  "exp": "actions = [heat_stress, heavy_rain]",
+  "act": [
+   "heat_stress",
+   "heavy_rain"
+  ],
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ROB-01",
+  "cat": "robustness",
+  "test": "repeated identical request is stable",
+  "exp": "same value",
+  "act": "50.49 == 50.49",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "ROB-02",
+  "cat": "robustness",
+  "test": "5 concurrent identical requests",
+  "exp": "all 50.49",
+  "act": [
+   50.49,
+   50.49,
+   50.49,
+   50.49,
+   50.49
+  ],
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "SEC-01",
+  "cat": "security",
+  "test": "path traversal in panchayat_name",
+  "exp": "no file disclosure",
+  "act": "[]",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "SEC-02",
+  "cat": "security",
+  "test": "5000-char query",
+  "exp": "bounded response",
+  "act": 200,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "SEC-03",
+  "cat": "security",
+  "test": "SQL-ish string",
+  "exp": "no error/server leak",
+  "act": "[]",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "SEC-04",
+  "cat": "security",
+  "test": "error response does not leak stack trace",
+  "exp": "'detail' only, no traceback",
+  "act": "keys=['detail'] detail=Cannot produce a rainfall value: no coordinates for this panchayat (ru",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "SEC-05",
+  "cat": "security",
+  "test": "API keys not exposed by any endpoint",
+  "exp": "no key in responses",
+  "act": true,
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "PERF-00",
+  "cat": "perf",
+  "test": "GET / latency",
+  "exp": "<50ms",
+  "act": "3 ms",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "PERF-01",
+  "cat": "perf",
+  "test": "GET /api/panchayats latency",
+  "exp": "<300ms",
+  "act": "78 ms",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "PERF-02",
+  "cat": "perf",
+  "test": "POST /auth/ latency (incl. 2 external APIs)",
+  "exp": "<1500ms",
+  "act": "292 ms",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "PERF-03",
+  "cat": "perf",
+  "test": "GET /api/advisory latency",
+  "exp": "<500ms",
+  "act": "5 ms",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "PERF-04",
+  "cat": "perf",
+  "test": "GET /api/metrics latency",
+  "exp": "<200ms",
+  "act": "8 ms",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ }
+]

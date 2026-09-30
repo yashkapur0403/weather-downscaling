@@ -6,6 +6,15 @@
 **Author of this plan:** automated repository inspection of the `b1` tree (no tests were executed while writing it)
 **Reference date of plan:** 2026-09-30
 
+> **Status note (added at submission time).** This plan targets `b1` @ `62d4a34`. Its D-1 … D-9
+> findings were re-checked against the hardened branch: **D-1** (centroid collapse), **D-2** (missing
+> `backend/.env.example`), **D-5** (the patch cannot apply), **D-6** (dead duplicate `/api/weather`
+> route) and **D-7** (docs describing the old `weather-downscaling-main/` layout) are **fixed**;
+> **D-3** is now documented rather than fixed, because the >100 MB Layer-2 files are gitignored on
+> purpose; **D-8** is open by design; **D-4** and **D-9** are open and low. The concrete changes and
+> their evidence are in the status table at the top of `COMPREHENSIVE_QA_TEST_REPORT.md` and in
+> `LOGICAL_VALIDATION_REPORT.md` §20.
+
 > ⚠️ **Read this first — the branch matters.**
 > The repository's **default branch `main` does NOT contain the backend or the frontend**.
 > It holds only the Layer-1/Layer-2 ML pipeline. The complete product (FastAPI backend +

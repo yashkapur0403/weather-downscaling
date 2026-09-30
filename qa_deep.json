@@ -1,0 +1,122 @@
+[
+ {
+  "id": "WEATHER-REL",
+  "cat": "robustness",
+  "test": "Open-Meteo/DEM reliability over 10 calls",
+  "exp": "all non-null ideally; must degrade to null+error not fabricate",
+  "act": "10/10 non-null; nulls=[]",
+  "st": "PASS",
+  "sev": "Medium",
+  "note": "If any null: external dependency; handler returns 200 with nulls+error (no fabrication)."
+ },
+ {
+  "id": "GEO-NOCOORD",
+  "cat": "geocode",
+  "test": "geocode Panchayat without coordinates",
+  "exp": "404 'no coordinates'",
+  "act": "404 {'detail': 'no coordinates for this panchayat. Run build_panchayat_index.py to add them'}",
+  "st": "PASS",
+  "sev": "Low",
+  "note": ""
+ },
+ {
+  "id": "GEO-NOPARAM",
+  "cat": "geocode",
+  "test": "geocode missing panchayat_name",
+  "exp": "422",
+  "act": "422",
+  "st": "PASS",
+  "sev": "Low",
+  "note": ""
+ },
+ {
+  "id": "SEARCH-AMBIG",
+  "cat": "mapping",
+  "test": "search q=aluru returns distinct rows for duplicated name",
+  "exp": "multiple ALURU rows with distinct id/district",
+  "act": "rows=50; exact ALURU=4 -> [(200620, 'Guntur'), (217462, 'Davangere'), (219239, 'Mandya'), (220447, 'Udupi')]",
+  "st": "PASS",
+  "sev": "High",
+  "note": "Search returns distinct rows (good), but /auth/ name-only collapses to iloc[0] (BB-13) -> frontend MUST send full context."
+ },
+ {
+  "id": "DUP-POP",
+  "cat": "mapping",
+  "test": "duplicated Panchayat names in the served (mapped) set",
+  "exp": "quantify the ambiguity risk",
+  "act": "8404 duplicated names covering 26666 rows; max=59",
+  "st": "INFO",
+  "sev": "High",
+  "note": "Confirms BB-13 blast radius."
+ },
+ {
+  "id": "VAL-SEASONMEAN",
+  "cat": "value-analysis",
+  "test": "panchayat_summary.rainfall_mean_mm == npz cell mean over 122 days (ALURU)",
+  "exp": "approx equal (aggregation may be area-weighted, so small delta ok)",
+  "act": "summary=12.1270 vs npz_cell_mean=11.9682",
+  "st": "INFO",
+  "sev": "",
+  "note": "If very different, the summary uses the true area-weighted polygon mean (expected)."
+ },
+ {
+  "id": "VAL-MAP",
+  "cat": "dataset",
+  "test": "outputs/maps/infer_2022-07-10.npy matches the served Deccan grid",
+  "exp": "same grid as prediction_test.npz (285, 200)",
+  "act": "STALE PILOT GRID: shape=(85, 85) (Western Ghats pilot is 85x85; Deccan is (285, 200))",
+  "st": "FAIL",
+  "sev": "Low",
+  "note": "Not read by any backend route (data_store reads prediction_test.npz), but a stale pilot-grid artefact sits in the product repo."
+ },
+ {
+  "id": "VAL-IMDCHIRPS",
+  "cat": "dataset",
+  "test": "test-split corr(IMD, CHIRPS) vs meta.imd_chirps_coarse_corr",
+  "exp": "~0.3557",
+  "act": "corr=0.3850 on 5397646 masked pixels",
+  "st": "INFO",
+  "sev": "",
+  "note": "Meta value is computed over the processed set; near-match validates source alignment."
+ },
+ {
+  "id": "VAL-BLOCK",
+  "cat": "value-analysis",
+  "test": "block_rainfall has 1123 blocks for every date",
+  "exp": "single unique count per date",
+  "act": "per-date counts unique=[1123]",
+  "st": "PASS",
+  "sev": "Low",
+  "note": ""
+ },
+ {
+  "id": "ADVBLOCK-LIMIT",
+  "cat": "advisory",
+  "test": "block advisory > 60 panchayats",
+  "exp": "rejected (>60 cap)",
+  "act": "422 {'detail': [{'type': 'model_attributes_type', 'loc': ['body'], 'msg': 'Input should be a valid dictionary or object to e",
+  "st": "PASS",
+  "sev": "Low",
+  "note": ""
+ },
+ {
+  "id": "ADVBLOCK-EMPTY",
+  "cat": "advisory",
+  "test": "block advisory empty list",
+  "exp": "handled",
+  "act": "422 {'detail': [{'type': 'model_attributes_type', 'loc': ['body'], 'msg': 'Input sho",
+  "st": "INFO",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "GEO-PREC",
+  "cat": "mapping",
+  "test": "geocode precision reported correctly",
+  "exp": "exact only when truly panchayat-level",
+  "act": "no-context lat=16.30287 prec=exact; with-context lat=13.679452 prec=exact",
+  "st": "INFO",
+  "sev": "Medium",
+  "note": "Both return the same admin-centroid coord labelled 'exact' (D-1)."
+ }
+]

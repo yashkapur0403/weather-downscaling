@@ -1,0 +1,142 @@
+[
+ {
+  "id": "E2E-220447",
+  "cat": "e2e-trace",
+  "test": "ALURU: coord->npz[46,67]->/auth->advisory",
+  "exp": "npz=50.49 plan=50.49 mapping=direct_grid/2",
+  "act": "auth=50.49 src=U-Net prediction grid (prediction_test.npz) search_map=direct_grid/2 coord=(13.679452,74.742466)",
+  "st": "PASS",
+  "sev": "High",
+  "note": "chain: panchayat_index coord -> nearest npz cell -> round2 -> /auth response; search fields match panchayat_summary.csv"
+ },
+ {
+  "id": "E2E-201416",
+  "cat": "e2e-trace",
+  "test": "NAGULAMALLIAL: coord->npz[143,156]->/auth->advisory",
+  "exp": "npz=41.77 plan=41.77 mapping=direct_grid/1",
+  "act": "auth=41.77 src=U-Net prediction grid (prediction_test.npz) search_map=direct_grid/1 coord=(18.543199,79.199244)",
+  "st": "PASS",
+  "sev": "High",
+  "note": "chain: panchayat_index coord -> nearest npz cell -> round2 -> /auth response; search fields match panchayat_summary.csv"
+ },
+ {
+  "id": "E2E-202120",
+  "cat": "e2e-trace",
+  "test": "AMERDA: coord->npz[128,153]->/auth->advisory",
+  "exp": "npz=27.68 plan=27.68 mapping=direct_grid/1",
+  "act": "auth=27.68 src=U-Net prediction grid (prediction_test.npz) search_map=direct_grid/1 coord=(17.804024,79.034527)",
+  "st": "PASS",
+  "sev": "High",
+  "note": "chain: panchayat_index coord -> nearest npz cell -> round2 -> /auth response; search fields match panchayat_summary.csv"
+ },
+ {
+  "id": "E2E-254406",
+  "cat": "e2e-trace",
+  "test": "CURDI: coord->npz[77,57]->/auth->advisory",
+  "exp": "npz=16.73 plan=16.73 mapping=direct_grid/1",
+  "act": "auth=16.73 src=U-Net prediction grid (prediction_test.npz) search_map=direct_grid/1 coord=(15.260417,74.235417)",
+  "st": "PASS",
+  "sev": "High",
+  "note": "chain: panchayat_index coord -> nearest npz cell -> round2 -> /auth response; search fields match panchayat_summary.csv"
+ },
+ {
+  "id": "UAT-J1",
+  "cat": "UAT",
+  "test": "Select ALURU -> projection -> advisory -> explanation consistent",
+  "exp": "50.49 mm, warning, XAI summary mentions 50.5",
+  "act": "rain=50.49 sev=warning ev=50.49 xai='50.5 mm/day estimated for ALURU on 2022-'",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "UAT-J2",
+  "cat": "UAT",
+  "test": "Change Panchayat yields a different rainfall (not cached/default)",
+  "exp": "ALURU 50.49 != CURDI 16.73",
+  "act": "ALURU=50.49 CURDI=16.73",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "UAT-J3",
+  "cat": "UAT",
+  "test": "Change date yields date-specific values",
+  "exp": "2022-06-01=0.0 (plan), 2022-07-10=50.49, 2022-09-30 in range",
+  "act": "{\"2022-06-01\": 0.0, \"2022-07-10\": 50.49, \"2022-09-30\": 0.0}",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "UAT-J4",
+  "cat": "UAT",
+  "test": "Unavailable-data Panchayat shows a clear error, no fabricated value",
+  "exp": "422 with 'no coordinates' + available dates",
+  "act": "422 {'detail': 'Cannot produce a rainfall value: no coordinates for this panchayat (run build_panchayat_index.py). Available dates: 2022-06-01 to 2022-09-30.'}",
+  "st": "PASS",
+  "sev": "Medium",
+  "note": ""
+ },
+ {
+  "id": "UAT-J5",
+  "cat": "UAT",
+  "test": "Coastal/masked cell errors instead of returning 0.0",
+  "exp": "422 'not finite'",
+  "act": "422 {'detail': 'model output is not finite at this cell (sea / excluded cell)'}",
+  "st": "PASS",
+  "sev": "Medium",
+  "note": ""
+ },
+ {
+  "id": "UAT-J6",
+  "cat": "UAT",
+  "test": "Out-of-range date refused with available range",
+  "exp": "422 naming 2022-06-01..2022-09-30",
+  "act": "422 {'detail': 'Cannot produce a rainfall value: no model output for 2022-10-01. Available dates: 2022-06-01 to 2022-09-30.'}",
+  "st": "PASS",
+  "sev": "Medium",
+  "note": ""
+ },
+ {
+  "id": "UAT-J7",
+  "cat": "UAT",
+  "test": "Extreme rainfall produces alert + actionable steps",
+  "exp": "severity=alert, R1_HEAVY_RAIN fired, actions non-empty",
+  "act": "sev=alert rules=None actions=3",
+  "st": "PASS",
+  "sev": "Medium",
+  "note": ""
+ },
+ {
+  "id": "INT-1",
+  "cat": "integration",
+  "test": "backend<->Layer1: /auth value recomputed from prediction_test.npz",
+  "exp": "npz[46,67]=50.49",
+  "act": "api=50.49 src='U-Net prediction grid (prediction_test.npz)'",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "INT-2",
+  "cat": "integration",
+  "test": "backend<->metrics.json/ablation.json consistency",
+  "exp": "D MAE 8.167, params 117,329",
+  "act": "MAE=8.167 rmse=16.014 corr=0.4461 params=117,329 imp=15.0",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "INT-3",
+  "cat": "integration",
+  "test": "Layer2/aux -> advisory: soil/NDVI/LULC never feed the rules",
+  "exp": "advisory consumes only rainfall/temp/RH/wind/soil_moisture (caller-supplied)",
+  "act": "grep: no backend route references soil_soilgrids/ndvi_monthly/lulc_fractions",
+  "st": "PASS",
+  "sev": "Medium",
+  "note": "Documented wiring gap (N-1/N-2); advisory evidence.rainfall_mm echoes the caller value."
+ }
+]

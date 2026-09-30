@@ -1,0 +1,281 @@
+{
+ "identity_binding": [
+  {
+   "panchayat_id": 202278,
+   "name": "PEGA",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 44.82,
+   "served": 44.82,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 202507,
+   "name": "CHINARKUR",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 42.81,
+   "served": 42.81,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 202508,
+   "name": "CHUCHIREVULAGUDEM",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 43.62,
+   "served": 43.62,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 202163,
+   "name": "GOWRIDEVIPETA",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 46.06,
+   "served": 46.06,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 202180,
+   "name": "YETAPAKA",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 48.11,
+   "served": 48.11,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 245211,
+   "name": "BHADRACHALAM",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 47.36,
+   "served": 47.36,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 202270,
+   "name": "EDUGURALLAPALLI",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 44.4,
+   "served": 44.4,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 289591,
+   "name": "GANGANNAMETTA",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 46.39,
+   "served": 46.39,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 202509,
+   "name": "JAGGAVARAM",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 42.81,
+   "served": 42.81,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 202513,
+   "name": "KUNAVARAM",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 42.81,
+   "served": 42.81,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 202517,
+   "name": "PEDARKURU",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 45.47,
+   "served": 45.47,
+   "match": true,
+   "prec": "exact"
+  },
+  {
+   "panchayat_id": 202520,
+   "name": "TEKUBAKA",
+   "district": "Alluri Sitharama Raju",
+   "status": 200,
+   "expected_from_own_cell": 44.61,
+   "served": 44.61,
+   "match": true,
+   "prec": "exact"
+  }
+ ],
+ "ambiguity": {
+  "name": "RAMPUR",
+  "n_rows_sharing_name": 61,
+  "name_only_status": 409,
+  "name_only_candidates": 10,
+  "contextual_status": 200,
+  "contextual_value": 16.77,
+  "contextual_expected": 16.77,
+  "geocode_name_only_status": 405
+ },
+ "sequence_isolation": [
+  {
+   "panchayat_id": 202278,
+   "name": "PEGA",
+   "date": "2022-06-01",
+   "expected": 0.07,
+   "served": 0.07,
+   "match": true
+  },
+  {
+   "panchayat_id": 202507,
+   "name": "CHINARKUR",
+   "date": "2022-06-08",
+   "expected": 0.07,
+   "served": 0.07,
+   "match": true
+  },
+  {
+   "panchayat_id": 202508,
+   "name": "CHUCHIREVULAGUDEM",
+   "date": "2022-06-15",
+   "expected": 3.18,
+   "served": 3.18,
+   "match": true
+  },
+  {
+   "panchayat_id": 202510,
+   "name": "KACHAVARAM",
+   "date": "2022-06-22",
+   "expected": 6.81,
+   "served": 6.81,
+   "match": true
+  }
+ ],
+ "concurrent_isolation": [
+  {
+   "panchayat_id": 202278,
+   "date": "2022-06-01",
+   "expected": 0.07,
+   "served": 0.07
+  },
+  {
+   "panchayat_id": 202507,
+   "date": "2022-06-08",
+   "expected": 0.07,
+   "served": 0.07
+  },
+  {
+   "panchayat_id": 202508,
+   "date": "2022-06-15",
+   "expected": 3.18,
+   "served": 3.18
+  },
+  {
+   "panchayat_id": 202510,
+   "date": "2022-06-22",
+   "expected": 6.81,
+   "served": 6.81
+  }
+ ],
+ "zero_rain_case": [
+  {
+   "panchayat_id": 196404,
+   "name": "NARASAPURAM",
+   "status": 200,
+   "rainfall_mm": 0.0,
+   "answer": "Estimated rainfall for NARASAPURAM on 2022-07-10: 0.0 mm/day (source: U-Net prediction grid (prediction_test.npz)).",
+   "search_result_season_mean": 0.6826595595358398
+  },
+  {
+   "panchayat_id": 196414,
+   "name": "BHEEMUNIPALLI",
+   "status": 200,
+   "rainfall_mm": 0.0,
+   "answer": "Estimated rainfall for BHEEMUNIPALLI on 2022-07-10: 0.0 mm/day (source: U-Net prediction grid (prediction_test.npz)).",
+   "search_result_season_mean": 0.7404744215462296
+  },
+  {
+   "panchayat_id": 196621,
+   "name": "ALUR",
+   "status": 200,
+   "rainfall_mm": 0.0,
+   "answer": "Estimated rainfall for ALUR on 2022-07-10: 0.0 mm/day (source: U-Net prediction grid (prediction_test.npz)).",
+   "search_result_season_mean": 0.7052335106962375
+  }
+ ],
+ "layer3_binding": {
+  "correct": {
+   "status": 200,
+   "severity": "warning",
+   "evidence_rainfall": 0.0,
+   "risk_level": "no_rain",
+   "data_date": "2022-07-10",
+   "fired": [
+    "R2_IRRIGATION",
+    "R6_VEGETATION"
+   ],
+   "n_actions": 4
+  },
+  "zero": {
+   "status": 200,
+   "severity": "warning",
+   "evidence_rainfall": 0.0,
+   "risk_level": "no_rain",
+   "data_date": "2022-07-10",
+   "fired": [
+    "R2_IRRIGATION",
+    "R6_VEGETATION"
+   ],
+   "n_actions": 4
+  },
+  "inflated": {
+   "status": 409,
+   "severity": null,
+   "evidence_rainfall": null,
+   "risk_level": null,
+   "data_date": null,
+   "fired": [],
+   "n_actions": 0
+  },
+  "out_of_range_date": {
+   "status": 422,
+   "data_date": null
+  },
+  "bogus_panchayat_id": {
+   "status": 422,
+   "aux": null,
+   "severity": null
+  }
+ },
+ "enums_errors": {
+  "GET_mustard": 422,
+  "GET_ripening": 422,
+  "GET_general": 422,
+  "GET_grain_filling_rejected": 422,
+  "POST_mustard": 200,
+  "POST_ripening": 200,
+  "auth_out_of_range_date": 422,
+  "auth_masked_cell": {
+   "status": 422,
+   "panchayat_id": 199960,
+   "name": "AMRUTHALUR",
+   "summary_season_mean_mm": 0.0050022903282088,
+   "body": "{'detail': 'model output is not finite at this cell (sea / excluded cell)'}"
+  },
+  "health": 200
+ }
+}

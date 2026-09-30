@@ -1,0 +1,57 @@
+{
+ "generated_by": "generate_pred.py",
+ "generated_at_utc": "2026-09-30T11:52:32+00:00",
+ "geometry": {
+  "split": "test",
+  "n_dates": 122,
+  "first_date": "2022-06-01",
+  "last_date": "2022-09-30",
+  "shape": [
+   122,
+   285,
+   200
+  ],
+  "dtype": "float32"
+ },
+ "values": {
+  "finite_cells_per_day": 44243,
+  "max_mm": 193.955810546875,
+  "mean_mm": 9.41336727142334,
+  "any_negative": false,
+  "nan_masked": true
+ },
+ "predictor": {
+  "members": [
+   "model_e.pt",
+   "model_f.pt"
+  ],
+  "weights": [
+   0.5,
+   0.5
+  ],
+  "rain_scale": 100.0,
+  "channels": [
+   "imd_rain",
+   "dem",
+   "era5_t2m",
+   "era5_t2m_max",
+   "era5_dewp"
+  ],
+  "n_parameters": 117329,
+  "manifest": "models/ensemble.json",
+  "checkpoint_sha256": {
+   "model_e.pt": "75187a83a07df4363ce766bd0e441b71237bb7c584ef039e0109868f732e7253",
+   "model_f.pt": "569b3adcd61680a032524bd8cbe8ae428a500efcbd6cbc82e72060101a72b44b"
+  },
+  "clipping": "per-member clip(net_k(X)*rain_scale, 0) then weighted mean"
+ },
+ "artefact": {
+  "path": "outputs/prediction_test.npz",
+  "sha256": "09410cf635cf5ab94aef61df97fd7cf31f120ca3409b1bf7eab0efd1ce4d5b20"
+ },
+ "inputs": {
+  "X": "data/processed/X_test.npy",
+  "M": "data/processed/M_test.npy",
+  "meta": "data/processed/meta.json"
+ }
+}

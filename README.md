@@ -1,9 +1,22 @@
-# Layer 1 — Coarse-to-Fine Weather Downscaling (dataset complete; model validated on pilot)
+# Panchayat Rainfall Downscaling & Agro-Advisory — Layers 1–3
 
-**What it is:** the coarse-to-fine weather refinement engine for the SIH project.
-Coarse IMD 0.25° daily rainfall + SRTM elevation + ERA5-Land daily context →
-small residual U-Net → fine 0.05° daily rainfall, evaluated against CHIRPS 0.05°
-as the fine-resolution **reference**.
+**What it is:** the complete SIH pipeline, all three layers, in one repository.
+**Layer 1** refines coarse IMD 0.25° daily rainfall with SRTM elevation and ERA5-Land
+context through a small residual U-Net into a fine 0.05° daily rainfall field, scored
+against CHIRPS 0.05° as the fine-resolution **reference**. **Layer 2** maps that field to
+the LGD Panchayat boundaries (86,103 of 87,735 mapped, 98.1%). **Layer 3** turns a
+Panchayat's Layer-1 rainfall into a rule-based, explained crop advisory served by a FastAPI
+backend (`backend/`, port 8000) and shown in a Next.js dashboard (`Frontend/`, port 3000).
+
+**Run it in two terminals:**
+
+```bash
+cd backend  && pip install -r requirements.txt && uvicorn app:app --reload --port 8000
+cd Frontend && npm install && npm run dev          # http://localhost:3000
+```
+
+The backend runs with **no API keys** (advisory and explain fall back to deterministic
+templates). `backend/README.md` documents every route and what data backs it.
 
 **Current status (be honest when presenting):**
 
@@ -14,9 +27,13 @@ as the fine-resolution **reference**.
 * ✅ Model **methodology validated on the Western Ghats pilot** (older, smaller
   run: 2019–2022, 122-day splits — §4). That pilot proved the pipeline works
   end-to-end and beat the baseline.
-* ❌ **Model training/evaluation on the Deccan dataset is NOT done yet.** The
-  numbers in §4 are pilot numbers, not Deccan numbers. `HANDOVER.md` explains
-  exactly how to run training next.
+* ✅ **Model training/evaluation on the Deccan dataset IS done** — six ablation
+  rows (A–F) plus the deployed E+F ensemble, selected on the **validation** split
+  only. On the unseen 2022 test split the shipped model gives MAE 8.43 mm /
+  RMSE 15.00 / corr 0.527 against the bilinear baseline's 9.60 / 18.18 / 0.385,
+  and beats it at every reported heavy-rain threshold (§4 and
+  `outputs/metrics/ablation_summary.md`). The Western-Ghats pilot numbers are
+  kept in §4, clearly labelled as historical.
 * ✅ **Layer-2 executed and verified for the Deccan config:** block aggregation
   and Panchayat mapping produced the final CSV, summary, GeoJSON, map, and QC
   artifacts in `outputs/layer2/`. The run mapped 86,103 of 87,735 Panchayats
@@ -42,9 +59,10 @@ step-by-step training/Layer-2 instructions.
 | `data/reports/*` | Data dictionary, coverage report, missingness report, verification JSON (committed) | humans — read the dictionary before touching data |
 | `data/raw/` | Source downloads (IMD, CHIRPS, DEM, ERA5, GADM, SoilGrids batches, VIIRS slices, WorldCover tiles, LGD panchayats). NOT in git — **reproduce with §5 commands**; per-year/batch caches make re-runs cheap | only rebuilds |
 | `scripts/` | **ACTIVE pipeline (Deccan)**: one script per stage (see §6) — every stage is cached/resumable | the pipeline |
-| `weather-downscaling-main/` | The app (backend + frontend). Its `scripts/` are the **legacy Western-Ghats PILOT** snapshot — EXCEPT 3 live Layer-2 scripts (`layer2_panchayat_mapping.py`, `check_blocks.py`, `export_pickle.py`) wired to the Deccan config via `layer2_config.py` | app + Layer-2 |
+| `backend/` | The FastAPI app (**Layer 3**): data store, rule engine, Groq/Sarvam text, all `/api/*` routes. Serves on port 8000 and reads every other directory in this repo | the web app, judges |
+| `Frontend/` | The Next.js dashboard. Reads the backend at `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`) | the user |
 | `data.zip` | Current **Deccan** model-ready archive (`data/processed/`, ~929 MiB; CRC + shapes verified). **Not in git** — copy from the shared OneDrive folder and run `unzip data.zip` at the repo root (or rebuild, §5). The old pilot archive is kept as `data_pilot_westernghats_LEGACY.zip` (~1.7 GB) | transfer / offline rebuild |
-| `models/`, `outputs/`, `prediction/` | Pilot-run checkpoints, metrics, maps; `prediction/*.npz` is the Layer-2 contract format | Layer-2 demo |
+| `models/`, `outputs/` | **The Deccan run**: checkpoints A–F + `ensemble.json` (the *deployed* model), the served grid `outputs/prediction_test.npz`, the ablation table, the provenance manifest `layer1_manifest.json` and the Layer-2 products | backend, Layer-2, humans |
 | `HANDOVER.md` | **The ops manual**: exact training commands, evaluation rules, Layer-2 recipes, rebuild instructions, all dataset decisions | the person doing training / Layer-2 (you, probably) |
 
 ---
@@ -112,8 +130,29 @@ Aux layers are **not** U-Net input channels — they exist for Layer-2
 * **Temporal split (no leakage):** train = 2018+2019+2020 (366 days),
   val = 2021 (122), test = 2022 (122). Normalization statistics come from
   **training years only**. Test is never used for tuning or model selection.
-* **Model selection rule (fixed before test):** lowest val MAE; rows within
-  0.1 mm are considered tied and the tie is broken by val correlation.
+* **Model selection rule (fixed before test, validation split only):** lowest
+  val MAE wins; rows within **0.75 mm** are treated as tied (noise level) and
+  the tie is broken by val heavy-rain skill (**F1 at >=25 mm**). This replaced
+  the earlier "0.1 mm tie broken by correlation" rule, which selected a model
+  that barely detected heavy events (F1>=50 mm = 0.015).
+* **Deployed model = an ensemble (row EF).** A single MAE-trained residual
+  network is calibrated to the conditional mean, so >=50 mm/day events are
+  predicted at ~26-28 mm and F1 at that threshold collapses (measured test
+  precision 0.44, recall 0.08). `models/ensemble.json` therefore declares a
+  weighted mean of two checkpoints that share architecture/channels/scaling
+  but differ in loss emphasis: **E** (heavy-rain weighted) plus **F** (>=50 mm
+  weighted). The mixing weight is searched **on validation only**, constrained
+  to stay inside the same 0.75 mm MAE window, then ranked by val F1>=25 mm -
+  it independently selected E weight 0.5. Every serving path
+  (`generate_pred.py`, `backend/live_infer.py`) resolves the deployed model
+  through `scripts/ensemble.py`, so the served grid and the live-inference
+  route can never come from different models. `models/best_model.pt` is kept
+  as the single-checkpoint fallback, used only when `ensemble.json` is absent.
+* **Provenance:** `generate_pred.py` writes
+  `outputs/metrics/layer1_manifest.json` with the sha256 of the grid, of each
+  contributing checkpoint, and the weights - and `/api/metrics` republishes it
+  as `layer1_provenance`. A retrain therefore cannot silently leave a stale
+  grid in place: hashes either match or they do not.
 * **Loss experiment:** MAE vs heavy-rain-weighted MAE, chosen on validation.
 * **Data-quality checks** (`quality.py`, run inside `preprocess.py`): date and
   coordinate alignment, latitude/longitude ordering, duplicate timestamps,
@@ -123,7 +162,25 @@ Aux layers are **not** U-Net input channels — they exist for Layer-2
   semantics, aux layers index the same land cells, value ranges sane. Run it
   after any rebuild; it exits non-zero on any problem.
 
-## 4. Results — PILOT ONLY (Western Ghats, 2019–2022; NOT the Deccan run)
+## 4. Results — Deccan (shipped) and the Western-Ghats pilot (historical)
+
+> **Deccan run (the shipped product):** see `outputs/metrics/ablation_summary.md`.
+> The deployed model is row **EF**, the validation-selected equal-weight ensemble
+> of **E** (U-Net + DEM + ERA5-Land, heavy-rain weighted) and **F** (same but
+> weighted at >=50 mm). On the unseen 2022 test split EF gives
+> **MAE 8.43 mm / RMSE 15.00 / corr 0.527** and event F1 **0.601 / 0.442 / 0.284**
+> at 10 / 25 / 50 mm, against the bilinear baseline's
+> **9.60 / 18.18 / 0.385** and **0.477 / 0.343 / 0.234**.
+>
+> Wording, precisely: EF is **12.2% lower MAE** than the bilinear baseline (not
+> "12% better overall"), and it beats the baseline at **every** reported
+> threshold including F1>=50 mm. The previous selection was E
+> (MAE 8.21 / RMSE 14.57 / corr 0.518 - a better *mean* error, i.e. 14.5% lower
+> MAE than baseline) but E **lost** the heavy-rain extreme: F1>=50 mm 0.129 vs
+> 0.234 for the baseline. EF is the point on the val-selected MAE/recall
+> trade-off where nothing served is worse than the baseline.
+> All three rows are in `outputs/metrics/ablation_summary.md`; nothing here is
+> hidden by picking one number.
 
 Reference: **CHIRPS 0.05° — a reference product, not ground truth.**
 122 train / 122 val / 122 test monsoon days; same dates for every row.
@@ -144,9 +201,10 @@ Reference: **CHIRPS 0.05° — a reference product, not ground truth.**
 * **MAE vs weighted loss trade-off is real:** MAE training minimizes mean
   error but smooths heavy rain; the weighted loss trades ~0.7 mm MAE for far
   better heavy-rain detection (relevant for agriculture).
-* These tables come from `outputs/metrics/*` of the **pilot** run. **No
-  metrics exist yet for the Deccan dataset** — producing them is the next step
-  (see `HANDOVER.md`).
+* The table above is the historical **pilot** run (Western Ghats, 2019–2022),
+  kept so the methodology trail stays visible. The Deccan numbers that ship are
+  the box at the top of this section; `outputs/metrics/ablation_summary.md` is
+  the artefact of record.
 
 ## 5. How to run everything
 
@@ -160,10 +218,18 @@ python scripts/fetch_lgd_panchayats.py                 # Layer-2 input: LGD Gram
 python scripts/preprocess.py                           # align, quality-check, split, normalize -> data/processed/
 python scripts/verify_dataset.py                       # end-to-end QA; exits non-zero on any problem
 
-# --- training (NEXT STEP, not yet run for deccan) ---
+# --- training ---
 python scripts/train.py --channels imd_rain,dem,era5_t2m,era5_t2m_max,era5_dewp --out-name model_d
-python scripts/ablation.py             # A-D table, val-based selection -> best_model.pt
-python scripts/evaluate.py --models model_b,model_c,model_c_weighted,model_d
+python scripts/train.py --channels imd_rain,dem,era5_t2m,era5_t2m_max,era5_dewp \
+    --loss weighted --out-name model_e                       # heavy-rain weighted
+python scripts/train.py --channels imd_rain,dem,era5_t2m,era5_t2m_max,era5_dewp \
+    --loss weighted --weight-rain-mm 50 --weight-mult 10 --out-name model_f
+python scripts/ablation.py             # A..F + EF table, val-only selection
+                                       # -> models/ensemble.json (deployed)
+                                       #    models/best_model.pt (fallback)
+python generate_pred.py                # outputs/prediction_test.npz
+                                       # + outputs/metrics/layer1_manifest.json
+python scripts/evaluate.py --models model_b,model_c,model_c_weighted,model_d,model_e,model_f
 python scripts/infer.py --imd data/raw/imd/ind2022_rfp25.nc --date 2022-07-10
 ```
 
@@ -186,9 +252,11 @@ weather-downscaling/
 │   ├── processed/          # X/Y/M_{train,val,test}.npy + meta.json  (MODEL INPUT)
 │   ├── aux_data/           # admin/, soil_soilgrids_*, ndvi_monthly_*, lulc_fractions_*, build_summary_*.json
 │   └── reports/            # data dictionary, coverage, missingness, verify_dataset JSON
-├── models/                 # checkpoints + histories (pilot only, so far)
+├── models/                 # checkpoints + histories + ensemble.json (deployed model)
 ├── scripts/
 │   ├── config.py           # regions, years, split, dirs, all knobs
+│   ├── ensemble.py         # THE definition of the deployed model
+│   │                       #   (models/ensemble.json -> weighted members)
 │   ├── netcdf3.py / imd_reader.py / grids.py / quality.py
 │   ├── download_or_export.py / inspect_data.py / gee_export.js
 │   ├── preprocess.py       # -> data/processed (model-ready)
@@ -197,11 +265,15 @@ weather-downscaling/
 │   ├── retry_soil_nan.py   # soil NaN diagnostics (genuine SoilGrids nulls)
 │   ├── verify_dataset.py   # end-to-end dataset QA (loud, exit-code)
 │   ├── train.py / ablation.py / evaluate.py / infer.py
-├── outputs/{maps,metrics,figures}/   # pilot run outputs
+│   ├── train.py / ablation.py / evaluate.py / infer.py
+│   ├── layer2_panchayat_mapping.py / produce_block_rainfall.py / layer2_config.py
+│   └── check_blocks.py
+├── backend/                # FastAPI app (Layer 3 advisory + /api/*), port 8000
+├── Frontend/               # Next.js dashboard, port 3000
+├── outputs/{maps,metrics,figures,layer2}/  # served grid, ablation + provenance, Layer-2 products
+├── generate_pred.py        # rebuilds outputs/prediction_test.npz + layer1_manifest.json
 ├── data.zip                          # current Deccan archive (data/processed/, ~929 MiB)
 ├── data_pilot_westernghats_LEGACY.zip # old Western-Ghats pilot archive (~1.7 GB, kept separate)
-├── weather-downscaling-main/         # app; scripts/ = legacy pilot + the 3 live Layer-2 scripts
-├── prediction/             # machine-readable Layer-2 contract output
 ├── HANDOVER.md             # how to train on this dataset + Layer-2 usage
 └── README.md
 ```
@@ -285,10 +357,11 @@ this direct:
   `data/raw/administrative/panchayat/LGD_Panchayats.parquet` (override with
   `--panchayats`), and `layer2_panchayat_mapping.py` exits with a clear error
   until it is present.
-* Pipeline: `train.py` → `infer.py` (emits `prediction/infer_*.npz`) →
-  `weather-downscaling-main/scripts/layer2_panchayat_mapping.py` →
-  `weather-downscaling-main/outputs/layer2/panchayat_weather.csv` (the exact
-  path `backend/app.py` reads).
+* Pipeline: `train.py` → `generate_pred.py` (writes the served grid
+  `outputs/prediction_test.npz`) → `scripts/layer2_panchayat_mapping.py` (writes
+  `outputs/layer2/*`). The per-date Panchayat CSV is >100 MB and is deliberately
+  **not** committed, so the backend does not read it: it reads the grid directly
+  at each Panchayat's own polygon point (`outputs/layer2/panchayat_index.csv`).
 
 **LGD Panchayat input (`LGD_Panchayats.parquet`) — prepared in one command.**
 Layer-2's only external input is a GeoParquet of Gram-Panchayat polygons at
@@ -328,6 +401,12 @@ readability, and expected schema:
 | `outputs/layer2/panchayat_weather_map.png` | Generated choropleth map |
 | `outputs/layer2/layer2_qc.json` | Provenance and QC record |
 
+> **Note (QA hardening).** `panchayat_weather.csv` and `panchayat_weather.geojson` are >100 MB and are
+deliberately **not committed** (see `.gitignore`). The backend therefore serves the per-date
+value from the U-Net grid at each Panchayat's *own* polygon point (built by
+`backend/build_panchayat_index.py`); run `scripts/layer2_panchayat_mapping.py` locally if you need
+the area-weighted per-date CSV.
+
 QC summary:
 
 * Total ROI Panchayats: **87,735**
@@ -335,7 +414,11 @@ QC summary:
 * Direct/area-based joins: **84,633**
 * Nearest-cell fallbacks within 20 km: **1,470**
 * Unmapped Panchayats: **1,632**, primarily off-grid or coastal-edge cases
-* Rainfall range: **0.00–163.28 mm/day**, mean **4.01 mm/day**
+* Rainfall range: **0.00–163.28 mm/day** in the committed summary, mean
+  **4.01 mm/day**. Caveat, stated plainly: that summary was produced from an
+  earlier Layer-1 grid. Over the same 122 days the currently served grid
+  (`outputs/prediction_test.npz`) reaches **193.96 mm/day**, so re-run
+  `scripts/layer2_panchayat_mapping.py` before quoting season aggregates.
 
 Layer 2 processing is complete and validated. The remaining limitation is
 spatial coverage of source polygons, not an unfinished processing step.
@@ -354,7 +437,12 @@ spatial coverage of source polygons, not an unfinished processing step.
   design; LULC has no class data over the sea-fringe part of them.
 * Soil has genuine SoilGrids nulls (8.8–9.4% per property); NDVI has monsoon
   cloud gaps (8.0%); neither is imputed — use NaN-aware statistics downstream.
-* Heavy rain remains hard for MAE-trained models; the weighted-loss variant
-  mitigates it at a small MAE cost. No probabilistic/uncertainty output yet.
+* Heavy rain remains hard for MAE-trained models; the weighted-loss variant and
+  the deployed E+F ensemble mitigate it (F1 ≥ 50 mm 0.284 vs the baseline's
+  0.234). Be precise about the tail, though: it is still largely missed — recall
+  for ≥ 100 mm/day events is ~0.005, and cells observed above 100 mm are
+  predicted at ~35 mm. The ensemble beats the baseline at every reported
+  threshold; it does not make extreme rainfall well predicted. No
+  probabilistic/uncertainty output yet.
 * The U-Net is deliberately small (~150k params). Operational use would consume
   IMD Block forecasts as coarse input, whose error propagates through Layer 1.
