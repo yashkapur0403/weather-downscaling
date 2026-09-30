@@ -94,29 +94,52 @@ ERA5-Land daily T/Tmax/Td   ─┘            (optional channels)         │
 * **Loss:** masked MAE (default) or a heavy-rain-weighted MAE (selected by
   validation, see §3).
 
-## 2. Regions and data (all real; no GEE authentication required)
+## 2. Regions, datasets and references (all real; no GEE authentication required)
+
+### 2.1 Regions
 
 Two named regions live in `scripts/config.py` (`config.REGIONS`):
 
-| region | bbox (lat, lon) | role |
-|---|---|---|
-| `western_ghats` | 13–17 N, 74.25–78.25 E | pilot used for the §4 results |
-| `deccan` (default) | 11.5–25.5 N, 71.5–81.25 E | full Layer-1 dataset, 2018–2022 |
-
-| Dataset | Role | Source | Where it lands |
+| region | bbox (lat, lon) | grid | role |
 |---|---|---|---|
-| IMD 0.25° daily rainfall | coarse input + land mask | imdpune.gov.in | `data/raw/imd/ind<YEAR>_rfp25.nc` |
-| CHIRPS v2.0 0.05° daily | fine reference (Y) | UCSB CHC | `data/raw/chirps/` (monthly) |
-| SRTM 30 m (Terrarium) | DEM channel | AWS Open Data tiles | `data/raw/dem/dem_roi_<region>.npz` |
-| ERA5-Land daily T/Tmax/dewpoint | auxiliary channels | Open-Meteo archive API | `data/raw/era5/era5_daily_<region>.npz` (per-year caches) |
-| GADM 4.1 admin polygons | **aux**: state/district/block mapping | gadm.org | `data/raw/admin/` → `data/aux_data/admin/` |
-| SoilGrids v2.0 (ISRIC) | **aux**: sand/clay/OC/pH/bulk density | rest.isric.org | `data/raw/soil/batches/` → `data/aux_data/soil_soilgrids_<region>.npz` |
-| NOAA CDR VIIRS NDVI | **aux**: vegetation composites | NCEI | `data/raw/vegetation/slices/` → `data/aux_data/ndvi_monthly_<region>.npz` |
-| ESA WorldCover 2021 | **aux**: land-cover fractions | S3 COG tiles | `data/raw/lulc/` → `data/aux_data/lulc_fractions_<region>.npz` |
-| ERA5-Land soil moisture (0–7 cm) | **aux (OPTIONAL, PENDING)**: daily volumetric water (Layer-3) | Open-Meteo archive API (same source as ERA5 channels) | builder in `build_aux.py`; resume: `python scripts/build_aux.py --region deccan --skip-admin --skip-soil --skip-ndvi --skip-lulc` |
+| `deccan` (default, **shipped**) | 11.5–25.5 N, 71.5–81.25 E | 285 × 200 @ 0.05° | the full Layer-1 dataset, 2018–2022, and every number in §4 |
+| `western_ghats` | 13–17 N, 74.25–78.25 E | 0.05° | historical pilot only (§4.5) |
+
+### 2.2 Datasets and references — the final set the shipped run used
+
+Exactly the nine sources below were consumed by the shipped Deccan build. Anything
+evaluated and **not** used (ESA WorldCereal crop type, ERA5-Land soil moisture) is
+listed as such in §7 — this table is deliberately not aspirational.
+
+| Dataset | Version / resolution | Period used | Role here | Lands at | Reference |
+|---|---|---|---|---|---|
+| **IMD daily gridded rainfall** | 0.25° NetCDF (`ind<YEAR>_rfp25.nc`) | Jun–Sep 2018–2022 | Layer-1 **coarse input** channel + the land mask | `data/raw/imd/` | India Meteorological Department, Pune — [cmpg/Griddata](https://www.imdpune.gov.in/cmpg/Griddata/Rainfall_25_NetCDF.html) |
+| **CHIRPS** | v2.0, 0.05° daily, global | same window | the fine-resolution **reference (Y)** every metric is scored against — a reference, not ground truth | `data/raw/chirps/` (monthly) | UCSB Climate Hazards Center — [CHIRPS-2.0/global_daily](https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/) |
+| **SRTM elevation** | 30 m, "terrarium" elevation tiles | static | Layer-1 **DEM channel** | `data/raw/dem/` | NASA/USGS SRTM via AWS Open Data — [elevation-tiles-prod](https://s3.amazonaws.com/elevation-tiles-prod/terrarium/) |
+| **ERA5-Land** daily mean/max temperature + dewpoint | 0.1° reanalysis, daily aggregates on a 1.0° lattice | Jun–Sep 2018–2022 | Layer-1 **auxiliary channels** (`era5_t2m`, `era5_t2m_max`, `era5_dewp`) | `data/raw/era5/` (per-year caches) | Copernicus C3S ERA5-Land, via the [Open-Meteo archive API](https://archive-api.open-meteo.com/v1/archive) |
+| **GADM** administrative polygons | 4.1 (`gadm41_IND_<lvl>.json.zip`), levels **1–3** (India) | static | **aux**: fine cell → state / district / subdistrict (block) | `data/raw/admin/` → `data/aux_data/admin/` | [GADM 4.1](https://geodata.ucdavis.edu/gadm/gadm4.1/json/) |
+| **SoilGrids** | v2.0, 5–15 cm, 250 m | static | **aux**: sand / clay / organic carbon / pH / bulk density for Layer 3 (`clay` decides R7) | `data/raw/soil/batches/` → `data/aux_data/` | ISRIC — [SoilGrids REST API](https://rest.isric.org/soilgrids/v2.0/properties/query) |
+| **NOAA CDR VIIRS NDVI** | `VIIRS-Land_v001`, 0.05° | Jun–Sep 2018–2022 → 20 monthly composites (days 5 & 25) | **aux**: vegetation state (`ndvi` decides R6) | `data/raw/vegetation/slices/` → `data/aux_data/` | NOAA NCEI — [land-normalized-difference-vegetation-index](https://www.ncei.noaa.gov/data/land-normalized-difference-vegetation-index/access) |
+| **ESA WorldCover** | v200, 2021, 10 m COG | 2021 | **aux**: 6 per-class area fractions + dominant class (R8 rule) | `data/raw/lulc/` → `data/aux_data/` | ESA — [WorldCover S3 tiles](https://esa-worldcover.s3.eu-central-1.amazonaws.com/) |
+| **LGD Gram-Panchayat boundaries** | release tag `admin/panchayats` (~368 MB GeoParquet) | static | **the Layer-2 join key**: the 87,735 Panchayats of the ROI, with real LGD codes | `data/raw/administrative/panchayat/` | Local Government Directory, Ministry of Panchayati Raj — [lgdirectory.gov.in](https://lgdirectory.gov.in); CC0-1.0 redistribution via [india-geodata](https://github.com/yashveeeeeeer/india-geodata), aggregating [ramSeraph/indian_admin_boundaries](https://github.com/ramSeraph/indian_admin_boundaries) |
+
+Fetching is two commands plus one: `scripts/download_or_export.py` (IMD, CHIRPS,
+DEM, ERA5), `scripts/build_aux.py` (GADM, SoilGrids, NDVI, WorldCover) and
+`scripts/fetch_lgd_panchayats.py` for the LGD boundaries — the last one only
+because they are a separate ~368 MB release that needs a SHA-256 check and a clip
+to the Deccan ROI. All of them cache per year / per batch, so re-runs are cheap.
 
 Aux layers are **not** U-Net input channels — they exist for Layer-2
-(agricultural interpretation, block/panchayat mapping, filtering, analysis).
+(agricultural interpretation, block/panchayat mapping, filtering, analysis) and,
+for clay / NDVI / land cover, for the Layer-3 rules.
+
+### 2.3 Attribution
+
+Each dataset stays under its provider's own terms; where this repository records a
+licence explicitly it is the LGD redistribution above (**CC0-1.0, public domain**,
+stated in `scripts/fetch_lgd_panchayats.py`). Derived layers are documented per
+file in `data/reports/data_dictionary_deccan.md`, which is the artefact to quote
+when describing what was built from what.
 
 ## 3. Methods
 
@@ -507,18 +530,41 @@ value from the U-Net grid at each Panchayat's *own* polygon point (built by
 `backend/build_panchayat_index.py`); run `scripts/layer2_panchayat_mapping.py` locally if you need
 the area-weighted per-date CSV.
 
-QC summary:
+#### 8.1.1 Panchayat mapping QC (record: `outputs/layer2/layer2_qc.json`)
 
 * Total ROI Panchayats: **87,735**
 * Mapped Panchayats: **86,103 (98.1%)**
 * Direct/area-based joins: **84,633**
-* Nearest-cell fallbacks within 20 km: **1,470**
+* Nearest-cell fallbacks within 20 km: **1,470** (median fallback distance
+  **11.7 km**, max 20.0 km — no Panchayat is placed beyond the 20 km cap)
 * Unmapped Panchayats: **1,632**, primarily off-grid or coastal-edge cases
-* Rainfall range: **0.00–163.28 mm/day** in the committed summary, mean
-  **4.01 mm/day**. Caveat, stated plainly: that summary was produced from an
-  earlier Layer-1 grid. Over the same 122 days the currently served grid
-  (`outputs/prediction_test.npz`) reaches **193.96 mm/day**, so re-run
-  `scripts/layer2_panchayat_mapping.py` before quoting season aggregates.
+
+#### 8.1.2 Panchayat rainfall values — the served numbers, restated
+
+The QC record's own rainfall statistics and the values the API returns today come
+from **different Layer-1 grids**, so both are given explicitly rather than
+quietly merged:
+
+| | `layer2_qc.json` (Layer-2 run) | Served today (`outputs/prediction_test.npz`) |
+|---|---|---|
+| Grid behind it | the pre-hardening Layer-1 grid | the deployed E+F ensemble grid (grid sha `09410cf6…`, §4.3) |
+| min / mean / max (mm/day) | 0.00 / 4.01 / **163.28** | 0.00 / 9.97 / **193.96** |
+| Panchayat rainfall values | area-weighted over polygons, per date | the grid value at each Panchayat's **own polygon point** — the nearest cell, which is what `GET /api/weather` and the advisory serve |
+
+* The served column covers **10,290,212** finite (Panchayat, day) pairs out of
+  87,735 × 122 = 10,703,670 possible. It was computed the way the API resolves a
+  Panchayat (`live_infer.sample_grid` — nearest cell to the polygon's
+  representative point) and spot-checked against
+  `data_store.panchayat_grid_value` for specific ids and dates.
+* **Masked cells are not given a number.** **3,389** of the 87,735 ROI Panchayats
+  sit on cells the land mask excludes (coastal strip / sea). They have no value on
+  **any** date, and the API answers `422 masked_cell` for them rather than
+  inventing a figure — so 84,346 Panchayats resolve to a real number and 3,389 do
+  not.
+* **Therefore the committed `panchayat_summary.csv` (max 163.28 mm/day) is a stale
+  season aggregate.** Re-run `scripts/layer2_panchayat_mapping.py` before quoting
+  season totals or the Panchayat search list's seasonal means from it; anything
+  the API serves is already on the current grid.
 
 Layer 2 processing is complete and validated. The remaining limitation is
 spatial coverage of source polygons, not an unfinished processing step.
