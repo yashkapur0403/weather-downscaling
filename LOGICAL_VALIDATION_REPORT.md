@@ -1105,6 +1105,9 @@ are genuinely causal — verified by isolation, not by inspection.
 deterministic; the end-to-end guarantee fails only because the advisory receives its rainfall from the
 caller without verification — two small fixes away from being fully provable.**
 
+> **Status: both of those fixes have since been implemented — see §20.** The findings above are
+> reported as they stood at `4b2bc46` (no logic was changed while validating).
+
 ---
 
 ## 19. Evidence Inventory
@@ -1159,3 +1162,93 @@ cd .qa-b1/Frontend && npm run typecheck && npm run build
 | Test-split metrics (deployed) | MAE 8.428 / RMSE 14.998 / corr 0.5267; F1 0.601 / 0.442 / 0.284 @ 10/25/50 mm |
 | Baseline metrics | MAE 9.603 / RMSE 18.183 / corr 0.385; F1 0.477 / 0.343 / 0.234 |
 | Test suites | `pytest` 53 passed; `tsc --noEmit` clean; `next build` clean |
+
+---
+
+## 20. Post-fix status: A-1 and A-2 addressed
+
+The two High findings were fixed immediately after this report was written. The findings are kept
+above as they were found — nothing was rewritten to look better in hindsight — and this section
+records what changed and how it was verified. `pytest` went from 53 to **66 passed**.
+
+### 20.1 A-2 — the advisory now verifies the rainfall (fixed)
+
+`GET /api/advisory` resolves the authoritative Layer-1 value for the requested `panchayat_id` + `date`
+via `data_store.Store.panchayat_grid_value()`, which `routes_data.register` publishes on
+`app.state.rainfall_resolver`. It never invents a value: when the answer is unobtainable, `rainfall_mm`
+is `None` and `reason` names the missing piece. The route then behaves as follows:
+
+| situation | before | after |
+|---|---|---|
+| `rainfall_mm` matches the stored value (±0.011 mm) | 200, unverifiable | **200**, `verification.rainfall = "verified_against_layer1"` |
+| `rainfall_mm` omitted | 422 (required param) | **200**, value resolved server-side, `"resolved_from_layer1"` |
+| `rainfall_mm` disagrees (e.g. 999 vs 95.55) | **200 — silently wrong** | **409** with `supplied_mm`, `expected_mm`, `difference_mm` |
+| `date` outside the served grid (e.g. `1999-01-01`) | **200**, `data_date` echoed back | **422**, `reason: "date_unavailable"` |
+| masked cell (e.g. AMRUTHALUR pid 199960) | 200 if a value was supplied | **422**, `reason: "masked_cell"` |
+| `panchayat_id` with no coordinate | **200** with `aux: null` | **422**, `reason: "unknown_panchayat"` |
+| no data layer mounted (text-only deployment) | 200, indistinguishable | 200 labelled `unverified_no_data_source`; `rainfall_mm` required |
+
+The response now carries a `verification` block — `panchayat_id`, verified `date`, the rainfall status,
+the `source` string, the fine-grid `cell`, `location_precision`, and the status of aux, temperature and
+humidity — so a caller can see exactly what was checked. Temperature and humidity are still
+**caller-supplied** and are labelled as such rather than being implied to be verified; verifying those
+would need the same treatment against `/api/weather`. `POST /api/advisory` is unchanged and remains the
+route for deliberate what-if runs.
+
+Reproduced against the live server (`uvicorn app:app`):
+
+```
+rainfall_mm=95.55 (ALURU pid 220447)  -> 200  verified_against_layer1  cell [47,67]  aux verified
+rainfall_mm=999                       -> 409  supplied 999.0, expected 95.55, difference 903.45
+rainfall_mm omitted                   -> 200  resolved_from_layer1, evidence.rainfall_mm 95.55
+date=1999-01-01                       -> 422  reason: date_unavailable
+date=""                               -> 422  reason: date_unavailable
+panchayat 199960 (masked)             -> 422  reason: masked_cell
+panchayat 999999999                   -> 422  reason: unknown_panchayat
+panchayat 196404, rainfall_mm=0       -> 200  evidence.rainfall_mm 0.0   (zero survives)
+```
+
+### 20.2 A-1 — the frontend no longer substitutes a previous value (fixed)
+
+`HomePage.tsx` now merges with `??` instead of `||`, so a legitimate `0.0 mm` survives:
+
+```ts
+rainfall_mm: response.prediction.rainfall_mm ?? selected.rainfall_mm,   // was `||`
+```
+
+The sibling fields already used `??`, so this was the single inconsistent line. Additionally, the
+advisory panel no longer masks a refused request: `api/backend.ts` now throws an `ApiError` carrying
+the HTTP status, and `AdvisoryPanel.loadAdvisory` treats **409/422 as a hard failure** — it renders an
+explicit "Advisory withheld" state with the server's explanation instead of silently falling back to the
+crop-agnostic local rule set. Without that second change the new 409 would have been swallowed by the
+old `catch` and converted back into a plausible-looking advisory.
+
+### 20.3 Consequences for the findings list
+
+| ID | Status |
+|---|---|
+| **A-1** (falsy-zero substitution) | **Fixed** — `??` + the panel surfaces refusals |
+| **A-2** (advisory not bound to Panchayat/date) | **Fixed** — resolve, check, refuse, and publish what was checked |
+| A-3, A-4 (stale Layer-2 summary, season mean labelled with a date) | Open — needs a `layer2_panchayat_mapping.py` re-run and a fingerprint stamp |
+| A-5 (divergent fallback advisory) | Partially mitigated (refusals no longer fall back); the local rule set itself still differs from the backend |
+| A-6 … A-12, B-1, B-2, D-7 | Open — see §16 |
+
+### 20.4 The judge question, re-answered
+
+With A-1 and A-2 fixed, the previously unproven links are now enforced by the server rather than by
+client good behaviour:
+
+* **correct Panchayat** — proven at 12/12, and now a mismatched or unverifiable Panchayat is refused
+  rather than trusted;
+* **correct date** — proven at 54/54 on `/auth/`, and now the advisory refuses any date outside the
+  served grid instead of echoing it;
+* **correct rainfall prediction** — proven at 13/13 against the NPZ, and now a disagreeing client value
+  is rejected with both numbers;
+* **no silent substitution** — the substitution path in the frontend is closed and the server refuses
+  rather than substitutes;
+* **no unused-data claims** — unchanged, still open for `sand`/`ocd`/`ph`/`bdod` (**A-10**): those are
+  transported but read by no rule.
+
+Remaining honest caveats: temperature and humidity are still supplied by the caller (labelled, not
+verified), the Layer-2 summary path is still stale (**A-3**, not on the advisory path), and the served
+rainfall is still a nearest-cell value rather than a polygon mean (**B-1**).

@@ -67,10 +67,15 @@ export function HomePage() {
       const response: QueryResponse = await queryWeather(request);
       setModelStatus(response.model_status);
       
-      // Update the selected panchayat with the prediction data
+      // Update the selected panchayat with the prediction data.
+      // NOTE: `??`, never `||`. Rainfall of exactly 0.0 mm is a real answer for a
+      // dry day, and `0 || previous` would silently substitute the PREVIOUS
+      // Panchayat's rainfall into the display, the risk chip, the map and the
+      // advisory input (NARASAPURAM/BHEEMUNIPALLI/ALUR all return 0.0 mm on
+      // 2022-07-10). The sibling fields already use ??.
       setSelected({
         ...selected,
-        rainfall_mm: response.prediction.rainfall_mm || selected.rainfall_mm,
+        rainfall_mm: response.prediction.rainfall_mm ?? selected.rainfall_mm,
         temperature_c: response.prediction.temperature_c ?? selected.temperature_c,
         humidity_pct: response.prediction.humidity_pct ?? selected.humidity_pct,
         elevation_m: response.prediction.elevation_m ?? selected.elevation_m,

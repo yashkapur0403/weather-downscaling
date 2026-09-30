@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { fetchAdvisory } from '../../api/backend';
+import { fetchAdvisory, ApiError } from '../../api/backend';
 import type { Panchayat, AdvisoryResponse, CropType, CropStage } from '../../types';
 import { SEVERITY_STYLE, CROP_OPTIONS, STAGE_OPTIONS } from '../../types';
 import { Sprout, AlertTriangle, CheckCircle, Info, Loader2, ChevronDown } from 'lucide-react';
@@ -81,7 +81,22 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
         selected.panchayat_name,
       );
       setAdvisory(res);
-    } catch {
+    } catch (e) {
+      // A rainfall mismatch (409) or an unverifiable Panchayat/date (422) means
+      // the inputs we hold are not the inputs the server can vouch for. Do NOT
+      // paper over that with the local rainfall-only fallback: that would swap a
+      // loud, actionable error for confident advice about the wrong numbers.
+      if (e instanceof ApiError && (e.status === 409 || e.status === 422)) {
+        const detail = (e.body ?? {}) as { error?: string; supplied_mm?: number;
+                                           expected_mm?: number; reason?: string };
+        setError(
+          detail.error
+            ? `${detail.error}${detail.expected_mm != null ? ` (expected ${detail.expected_mm} mm, got ${detail.supplied_mm} mm)` : ''}`
+            : `Advisory refused for this Panchayat and date (${detail.reason ?? e.status}).`,
+        );
+        setAdvisory(null);
+        return;
+      }
       // Backend /api/advisory not available — fall back to local rules
       setAdvisory(generateLocalAdvisory(selected, crop, stage));
     } finally {
@@ -146,6 +161,26 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
           <div className="flex items-center gap-2 py-4 justify-center">
             <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--muted)' }} />
             <span className="text-xs" style={{ color: 'var(--muted)' }}>Generating advisory...</span>
+          </div>
+        ) : error ? (
+          <div
+            className="flex items-start gap-2 px-3 py-2 rounded"
+            style={{ background: 'rgba(162,58,48,0.10)', border: '1px solid rgba(162,58,48,0.35)' }}
+          >
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-px" style={{ color: 'var(--heat-4)' }} />
+            <div className="space-y-1">
+              <p className="text-[0.65rem] font-mono font-bold uppercase tracking-wider" style={{ color: 'var(--heat-4)' }}>
+                Advisory withheld
+              </p>
+              <p className="text-[0.65rem] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+                {error}
+              </p>
+              <p className="text-[0.6rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
+                The advisory is rule-based on the Layer-1 rainfall for a specific Panchayat and
+                date, so it refuses to run unless that value can be verified. Re-run the
+                projection for this Panchayat.
+              </p>
+            </div>
           </div>
         ) : advisory ? (
           <>

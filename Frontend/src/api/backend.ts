@@ -9,6 +9,24 @@ import type { QueryRequest, QueryResponse, Panchayat, ModelMetrics, AdvisoryResp
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
+/**
+ * An API failure that keeps the HTTP status and parsed body, so callers can
+ * tell a "you sent me the wrong value" (409) apart from "the service is down".
+ * The advisory panel relies on this: a rainfall mismatch must be surfaced, not
+ * quietly replaced by the local fallback advisory.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly body: unknown;
+
+  constructor(path: string, status: number, body: unknown, raw: string) {
+    super(`API ${path} → ${status}: ${raw}`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -16,7 +34,13 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`API ${path} → ${res.status}: ${text}`);
+    let body: unknown = null;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = null;
+    }
+    throw new ApiError(path, res.status, body, text);
   }
   return res.json() as Promise<T>;
 }
@@ -63,6 +87,10 @@ export async function fetchMetrics(): Promise<ModelMetrics> {
 }
 
 // ── Crop advisory (GET /api/advisory — requires all sensor params) ────────────
+// `rainfallMm` is sent so the server can CHECK it: the route resolves the
+// Layer-1 value for this Panchayat + date itself and answers 409 if the two
+// disagree, so a stale or wrong client value can no longer produce an advisory
+// about a different place or day.
 export async function fetchAdvisory(
   panchayatId: number,
   crop: CropType,

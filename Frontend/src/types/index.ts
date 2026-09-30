@@ -145,6 +145,25 @@ export interface AdvisoryResponse {
   disclaimer: string;
   crop: string;
   stage: string;
+  /** What the backend CHECKED before running the rules. `rainfall` is
+   *  'verified_against_layer1' when the value we sent matched the stored
+   *  Layer-1 field for this Panchayat and date, 'resolved_from_layer1' when the
+   *  server looked it up itself, 'unverified_no_data_source' when no data layer
+   *  was mounted. Temperature/humidity are always caller-supplied. */
+  verification?: {
+    panchayat_id: number;
+    date: string;
+    rainfall: 'verified_against_layer1' | 'resolved_from_layer1' | 'unverified_no_data_source';
+    supplied_mm: number | null;
+    expected_mm: number | null;
+    source: string | null;
+    cell: [number, number] | null;
+    location_precision: string | null;
+    reason?: string | null;
+    temperature_c: 'caller_supplied' | 'absent';
+    humidity_pct: 'caller_supplied' | 'absent';
+    aux: string;
+  };
 }
 
 export const CROP_OPTIONS = [

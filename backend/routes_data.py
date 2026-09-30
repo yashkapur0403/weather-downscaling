@@ -71,6 +71,20 @@ def register(app: FastAPI, repo_root: str | Path | None = None) -> None:
                 raise HTTPException(503, str(e))
         return S.store
 
+    def resolve_panchayat_rainfall(panchayat_id: int, date: str) -> dict:
+        """Authoritative Layer-1 rainfall for one Panchayat and date.
+
+        Published on `app.state` so routes that do not own the artefacts (the
+        Layer-3 advisory in main.py) can VERIFY a caller's claim instead of
+        trusting it. Raised as 503 when the artefacts are absent, because then
+        nothing can be verified.
+        """
+        return store().panchayat_grid_value(int(panchayat_id), date)
+
+    # The data layer is the only place that knows where the artefacts live; the
+    # advisory route asks for it through this hook (see main._rainfall_resolver).
+    app.state.rainfall_resolver = resolve_panchayat_rainfall
+
     def client() -> httpx.AsyncClient:
         if S.client is None:
             S.client = httpx.AsyncClient()

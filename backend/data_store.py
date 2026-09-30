@@ -20,7 +20,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from live_infer import DataUnavailable, sample_grid
+from live_infer import DataUnavailable, OutsideDomain, sample_grid
 
 DEFAULT_DATE = "2022-07-10"
 
@@ -194,3 +194,45 @@ class Store:
                 r["source"] = f"U-Net prediction grid ({g['path'].name})"
                 return r
         return None
+
+    def panchayat_grid_value(self, panchayat_id: int, date: str) -> dict:
+        """The AUTHORITATIVE Layer-1 rainfall for one Panchayat and date.
+
+        This is the value a caller's claim is checked against before it is allowed
+        to reach Layer 3. It never invents a number: when the answer is not
+        obtainable, `rainfall_mm` is None and `reason` names the missing piece so
+        the caller can say exactly why it could not verify.
+
+        reason: None | "unknown_panchayat" | "date_unavailable" | "masked_cell"
+        """
+        latlon = self.coords.get(int(panchayat_id))
+        if latlon is None:
+            return {"rainfall_mm": None, "reason": "unknown_panchayat", "source": None,
+                    "cell": None, "lat": None, "lon": None, "location_precision": None}
+        lat, lon = latlon
+        if date not in self.grid_dates:
+            return {"rainfall_mm": None, "reason": "date_unavailable", "source": None,
+                    "cell": None, "lat": lat, "lon": lon, "location_precision": "exact"}
+        try:
+            r = self.grid_rainfall(lat, lon, date)
+        except (DataUnavailable, OutsideDomain):
+            return {"rainfall_mm": None, "reason": "masked_cell", "source": None,
+                    "cell": None, "lat": lat, "lon": lon, "location_precision": "exact"}
+        return {"rainfall_mm": float(r["rainfall_mm"]), "reason": None,
+                "source": r["source"], "cell": [r["fine_i"], r["fine_j"]],
+                "lat": lat, "lon": lon, "location_precision": "exact"}
+
+
+# --------------------------------------------------------------------------
+# Cached access (one Store per resolved repo root)
+# --------------------------------------------------------------------------
+_STORES: dict[str, Store] = {}
+
+
+def store_for_root(repo_root: str | Path) -> Store:
+    """Reuse one Store per repo root. The artefacts are read-only, so sharing is
+    safe and avoids re-reading the summary CSV on every request."""
+    key = str(Path(repo_root).resolve())
+    if key not in _STORES:
+        _STORES[key] = Store(key)
+    return _STORES[key]

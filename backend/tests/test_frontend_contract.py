@@ -20,10 +20,13 @@ ADVISORY_KEYS = {"advisory_text", "severity", "actions", "evidence", "data_date"
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(app_with_data, monkeypatch):
+    # `app_with_data` wires the data layer to the tiny repo (tests/conftest.py) so
+    # the advisory assertions below go through the real verification path: the
+    # rainfall each test sends is checked against the stored Layer-1 field.
     async def tr(text, src, tgt): return f"[{tgt}] {text}"
     monkeypatch.setattr(main, "sarvam_translate", tr)
-    return TestClient(main.app)
+    return TestClient(app_with_data)
 
 
 def test_status(client):
@@ -77,8 +80,10 @@ def test_explain_hindi(client, monkeypatch):
 
 
 def _adv(client, **q):
-    base = dict(panchayat_id=7, crop="wheat", stage="general", rainfall_mm=2, temperature_c=30, humidity_pct=50,
-                date="2022-07-10", panchayat_name="Kondapur")
+    # GP11 stores 70.0 mm for 2022-07-10; the advisory verifies whatever we send
+    # against that, so the defaults use the stored value.
+    base = dict(panchayat_id=11, crop="wheat", stage="general", rainfall_mm=70.0, temperature_c=30, humidity_pct=50,
+                date="2022-07-10", panchayat_name="GP11")
     base.update(q)
     return client.get("/api/advisory", params=base)
 
@@ -88,6 +93,7 @@ def test_advisory_contract(client, monkeypatch):
     monkeypatch.setattr(main, "_phrase_call", ok)
     r = _adv(client, rainfall_mm=70).json()
     assert ADVISORY_KEYS <= set(r) and r["severity"] == "alert" and r["actions"]
+    assert r["verification"]["rainfall"] == "verified_against_layer1"
     assert set(r["evidence"]) == {"rainfall_mm", "risk_level", "temperature_c", "humidity_pct", "aux"}
     assert r["evidence"]["risk_level"] == "very_heavy" and r["crop"] == "wheat" and r["stage"] == "general"
 
@@ -103,13 +109,15 @@ def test_advisory_all_frontend_options_accepted(client, monkeypatch):
 def test_advisory_severity_mapping_and_normal(client, monkeypatch):
     async def ok(model, trace): return trace.headline_en
     monkeypatch.setattr(main, "_phrase_call", ok)
-    assert _adv(client, rainfall_mm=30).json()["severity"] == "warning"
-    n = _adv(client, rainfall_mm=12, humidity_pct=60).json()
+    # GP12 stores 30.0 mm, GP13 stores 12.0 mm (tests/conftest.py)
+    assert _adv(client, panchayat_id=12, rainfall_mm=30.0).json()["severity"] == "warning"
+    n = _adv(client, panchayat_id=13, rainfall_mm=12.0, humidity_pct=60).json()
     assert n["severity"] == "info" and n["actions"]
 
 
-def test_advisory_bad_input_is_422_so_frontend_uses_its_local_fallback(client):
+def test_advisory_bad_input_is_422_so_frontend_can_show_an_error(client):
     assert _adv(client, crop="banana").status_code == 422
+    # no rainfall and an id that is not in the coordinate index -> cannot verify
     assert client.get("/api/advisory", params={"panchayat_id": 1}).status_code == 422
 
 

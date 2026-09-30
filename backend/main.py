@@ -496,6 +496,26 @@ class AdvisoryUIResponse(BaseModel):
     message_source: str
     fired_rules: list[dict]
     trace: adv.AdvisoryTrace
+    # what was CHECKED before the rules ran (see advisory_ui):
+    #   rainfall "verified_against_layer1" | "resolved_from_layer1"
+    #            | "unverified_no_data_source"
+    #   temperature/humidity "caller_supplied" | "absent"
+    verification: dict = {}
+
+
+# Values are rounded to 2 dp at the API boundary, so a faithful caller can differ
+# from the stored value by at most half a rounding step.
+RAINFALL_MATCH_TOL_MM = 0.011
+
+
+def _rainfall_resolver():
+    """The data layer publishes this on app.state (routes_data.register).
+
+    Absent when the XAI service is mounted without the data routes (text-only
+    use), in which case nothing can be verified and the caller's value is
+    accepted but explicitly labelled unverified.
+    """
+    return getattr(app.state, "rainfall_resolver", None)
 
 
 @app.get("/api/advisory", response_model=AdvisoryUIResponse)
@@ -503,7 +523,7 @@ async def advisory_ui(
     panchayat_id: int,
     crop: CropQ = "general",
     stage: StageQ = "general",
-    rainfall_mm: float = Query(..., ge=0),
+    rainfall_mm: Optional[float] = Query(None, ge=0),
     temperature_c: Optional[float] = None,
     humidity_pct: Optional[float] = Query(None, ge=0, le=100),
     date: str = "",
@@ -513,12 +533,78 @@ async def advisory_ui(
 ):
     if lang != "en-IN" and lang not in LangCode.__args__:
         raise HTTPException(422, f"unsupported lang {lang}")
+
+    # ---- the rainfall must be the Layer-1 value for THIS panchayat and date ----
+    # The advisory is only meaningful if it is answering the question the user
+    # asked. A supplied value that disagrees with the stored field is a hard
+    # error (409) rather than something to quietly accept: otherwise a stale
+    # client value, a wrong Panchayat or a wrong date produces confident advice
+    # about a different place or day with nothing in the trace to show for it.
+    supplied_mm = rainfall_mm
+    verification = {
+        "panchayat_id": panchayat_id,
+        "date": date,
+        "rainfall": "unverified_no_data_source",
+        "supplied_mm": supplied_mm,
+        "expected_mm": None,
+        "source": None,
+        "cell": None,
+        "location_precision": None,
+        "temperature_c": "caller_supplied" if temperature_c is not None else "absent",
+        "humidity_pct": "caller_supplied" if humidity_pct is not None else "absent",
+        "aux": "unavailable",
+    }
+    resolver = _rainfall_resolver()
+    if resolver is not None:
+        try:
+            ref = resolver(panchayat_id, date)
+        except HTTPException:
+            raise
+        except Exception as e:                     # artefacts unreadable
+            raise HTTPException(
+                503, f"cannot verify rainfall for panchayat_id={panchayat_id}, date={date}: {e}")
+        expected = ref.get("rainfall_mm")
+        verification.update(expected_mm=expected, source=ref.get("source"),
+                            cell=ref.get("cell"),
+                            location_precision=ref.get("location_precision"),
+                            reason=ref.get("reason"))
+        if expected is None:
+            raise HTTPException(422, {
+                "error": (f"cannot verify rainfall for panchayat_id={panchayat_id}, "
+                          f"date={date!r}: {ref.get('reason')}"),
+                "reason": ref.get("reason"),
+                "panchayat_id": panchayat_id, "date": date,
+                "hint": ("the advisory is rule-based on the Layer-1 field, so it refuses to run "
+                         "against an unverifiable rainfall; check the Panchayat id and that the "
+                         "date is inside the served range (GET /api/metrics -> layer1_provenance)"),
+            })
+        if supplied_mm is None:
+            rainfall_mm = expected
+            verification["rainfall"] = "resolved_from_layer1"
+        elif abs(supplied_mm - expected) > RAINFALL_MATCH_TOL_MM:
+            raise HTTPException(409, {
+                "error": ("supplied rainfall_mm does not match the Layer-1 value for this "
+                          "panchayat and date"),
+                "supplied_mm": supplied_mm, "expected_mm": expected,
+                "difference_mm": round(supplied_mm - expected, 3),
+                "panchayat_id": panchayat_id, "date": date,
+                "source": ref.get("source"),
+                "hint": ("re-read the value from POST /auth/ for this Panchayat and date, or "
+                         "omit rainfall_mm and let the server resolve it"),
+            })
+        else:
+            rainfall_mm = expected               # normalise onto the stored value
+            verification["rainfall"] = "verified_against_layer1"
+    elif supplied_mm is None:
+        raise HTTPException(422, "rainfall_mm is required when no data source is registered")
+
     aux_ctx = None
     _aux = aux_layers_ctx()
     if _aux is not None:
         d = _aux.lookup_panchayat(panchayat_id, date or None)
         if d:
             aux_ctx = adv.AuxContext.model_validate(d)
+    verification["aux"] = "verified_against_layer2_cell" if aux_ctx else "unavailable"
     data = adv.PanchayatInput(
         panchayat=panchayat_name, crop=crop, stage=adv.FRONTEND_STAGE[stage],
         rainfall_mm=rainfall_mm, tmean_c=temperature_c, humidity_pct=humidity_pct,
@@ -552,6 +638,7 @@ async def advisory_ui(
         fired_rules=[{"rule_id": r.rule_id, "name": r.name, "condition": r.condition, "inputs": r.inputs,
                       "margin_pct": r.margin_pct, "flip_hint": r.flip_hint} for r in fired],
         trace=trace,
+        verification=verification,
     )
 
 
