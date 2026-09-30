@@ -427,7 +427,7 @@ QC summary:
 Layer 2 processing is complete and validated. The remaining limitation is
 spatial coverage of source polygons, not an unfinished processing step.
 
-## 9. Limitations (documented honestly)
+## 9. Limitations
 
 * **CHIRPS is the reference, not truth.** IMD and CHIRPS disagree substantially
   at daily scale (domain-mean daily coarse corr on the Deccan build ≈ 0.356);
