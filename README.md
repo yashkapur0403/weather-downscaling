@@ -736,6 +736,15 @@ runs 11 one-input perturbations to prove each input is causally used, and
 
 ## 10. Limitations
 
+* **`GET /api/advisory` accepts a smaller crop-stage vocabulary than `POST`**
+  (finding A-9). The GET query enum is `general | sowing | vegetative | flowering
+  | ripening | harvest`, while the POST body takes any stage string. `grain_filling`
+  and `maturity` — the two stages the heat rule depends on most — are therefore
+  reachable through POST but rejected as **422** by GET (`ripening` covers
+  `maturity` via a synonym; `grain_filling` has no equivalent), so a GET caller
+  cannot express the stage that makes `R3_HEAT_STRESS` fire. The rules themselves
+  are correct (§9.2/§9.3); the fix is to widen `StageQ` in `backend/main.py`.
+
 * **CHIRPS is the reference, not truth.** IMD and CHIRPS disagree substantially
   at daily scale (domain-mean daily coarse corr on the Deccan build ≈ 0.356);
   part of every error term is their disagreement, not model error. Weekly and
