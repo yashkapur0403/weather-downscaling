@@ -12,8 +12,8 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 /**
  * An API failure that keeps the HTTP status and parsed body, so callers can
  * tell a "you sent me the wrong value" (409) apart from "the service is down".
- * The advisory panel relies on this: a rainfall mismatch must be surfaced, not
- * quietly replaced by the local fallback advisory.
+ * The advisory panel relies on this: a rainfall mismatch must be surfaced, and
+ * a refused request must not be replaced by advice the panel made up itself.
  */
 export class ApiError extends Error {
   readonly status: number;

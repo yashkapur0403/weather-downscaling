@@ -46,6 +46,29 @@ def test_heat_only_in_sensitive_stage():
     assert "R3_HEAT_STRESS" not in fired_ids(adv.evaluate(mk(tmax_c=37, stage="vegetative")))
 
 
+def test_heat_is_not_fired_when_the_stage_is_unknown():
+    """A missing stage must not manufacture a hazard.
+
+    `p["heat"]` is the threshold for the crop's SENSITIVE window, so firing
+    without knowing the stage asserts something the inputs do not support. The
+    rule reports itself unevaluable instead (and confidence already drops).
+    """
+    t = adv.evaluate(mk(tmax_c=37, stage=None))
+    r = next(r for r in t.rules if r.rule_id == "R3_HEAT_STRESS")
+    assert not r.fired and not r.evaluable and r.severity == "none"
+    assert "crop stage" in r.flip_hint and "requires a known stage" in r.condition
+    assert "R3_HEAT_STRESS" not in fired_ids(t)
+    assert t.severity == "none"                       # a 37 C day, no heat alert
+    assert any("crop stage" in x for x in t.confidence_reasons)
+    # ...but the rule is not simply disabled: a known sensitive stage still fires
+    assert "R3_HEAT_STRESS" in fired_ids(adv.evaluate(mk(tmax_c=37, stage="grain_filling")))
+
+
+def test_missing_temperature_still_reports_heat_unevaluable():
+    r = next(r for r in adv.evaluate(mk(tmax_c=None)).rules if r.rule_id == "R3_HEAT_STRESS")
+    assert not r.fired and not r.evaluable and "temperature" in r.flip_hint
+
+
 def test_missing_inputs_are_not_evaluable_and_lower_confidence():
     t = adv.evaluate(mk(humidity_pct=None, wind_kmh=None))
     assert not next(r for r in t.rules if r.rule_id == "R4_DISEASE").evaluable

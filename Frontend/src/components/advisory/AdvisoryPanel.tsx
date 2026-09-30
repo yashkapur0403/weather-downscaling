@@ -11,52 +11,13 @@ interface AdvisoryPanelProps {
   isProjectionRun: boolean;
 }
 
-// ── Client-side fallback advisory (used when backend /api/advisory is offline) ─
-function generateLocalAdvisory(p: Panchayat, crop: CropType, stage: CropStage): AdvisoryResponse {
-  const rainfall = p.rainfall_mm;
-  let severity: AdvisoryResponse['severity'] = 'info';
-  let advisoryText = '';
-  const actions: string[] = [];
-
-  if (rainfall >= 64.5) {
-    severity = 'alert';
-    advisoryText = `Extremely heavy rainfall (${rainfall.toFixed(1)} mm) predicted. Potential for severe flooding and crop submersion.`;
-    actions.push('Delay all field operations', 'Clear drainage channels immediately', 'Prepare for potential crop loss assessment');
-  } else if (rainfall >= 24.5) {
-    severity = 'warning';
-    advisoryText = `Heavy rainfall (${rainfall.toFixed(1)} mm) expected. Risk of waterlogging in low-lying fields.`;
-    actions.push('Ensure field drainage is functional', 'Avoid pesticide/fertilizer application for 48h', 'Monitor crop for lodging');
-  } else if (rainfall >= 6.5) {
-    severity = 'watch';
-    advisoryText = `Moderate rainfall (${rainfall.toFixed(1)} mm). Beneficial for soil moisture but monitor for excess.`;
-    actions.push('Review irrigation schedule — rain may reduce need', 'Inspect field margins for early drainage issues');
-  } else {
-    severity = 'info';
-    advisoryText = `Light or no rainfall (${rainfall.toFixed(1)} mm). Conditions are stable for field operations.`;
-    actions.push('Continue scheduled operations', 'Maintain regular irrigation if dry conditions persist');
-  }
-
-  return {
-    advisory_text: advisoryText,
-    severity,
-    actions,
-    evidence: {
-      rainfall_mm: rainfall,
-      risk_level: (() => {
-        if (rainfall < 2.5) return 'no_rain';
-        if (rainfall < 10) return 'light';
-        if (rainfall < 25) return 'moderate';
-        if (rainfall < 50) return 'heavy';
-        return 'very_heavy';
-      })(),
-      temperature_c: p.temperature_c,
-      humidity_pct: p.humidity_pct,
-    },
-    data_date: p.date,
-    disclaimer: 'Client-side advisory based on rainfall thresholds only. Not a substitute for official meteorological guidance.',
-    crop,
-    stage,
-  };
+/** Why the panel has no advisory to show.
+ *  - `withheld`    — the server refused: the rainfall we hold is not the value
+ *                    it has for this Panchayat and date (409/422).
+ *  - `unavailable` — the advisory service could not be reached at all. */
+interface AdvisoryError {
+  kind: 'withheld' | 'unavailable';
+  message: string;
 }
 
 export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps) {
@@ -64,7 +25,7 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
   const [stage, setStage] = useState<CropStage>('general');
   const [advisory, setAdvisory] = useState<AdvisoryResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AdvisoryError | null>(null);
 
   const loadAdvisory = useCallback(async () => {
     if (!selected) return;
@@ -84,21 +45,29 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
     } catch (e) {
       // A rainfall mismatch (409) or an unverifiable Panchayat/date (422) means
       // the inputs we hold are not the inputs the server can vouch for. Do NOT
-      // paper over that with the local rainfall-only fallback: that would swap a
+      // paper over that with a client-side rainfall-only guess: that would swap a
       // loud, actionable error for confident advice about the wrong numbers.
       if (e instanceof ApiError && (e.status === 409 || e.status === 422)) {
         const detail = (e.body ?? {}) as { error?: string; supplied_mm?: number;
                                            expected_mm?: number; reason?: string };
-        setError(
-          detail.error
+        setError({
+          kind: 'withheld',
+          message: detail.error
             ? `${detail.error}${detail.expected_mm != null ? ` (expected ${detail.expected_mm} mm, got ${detail.supplied_mm} mm)` : ''}`
             : `Advisory refused for this Panchayat and date (${detail.reason ?? e.status}).`,
-        );
+        });
         setAdvisory(null);
         return;
       }
-      // Backend /api/advisory not available — fall back to local rules
-      setAdvisory(generateLocalAdvisory(selected, crop, stage));
+      // The advisory SERVICE is unreachable. The rules live on the server and read
+      // the rainfall together with temperature, soil, vegetation and land cover;
+      // there is no client-side copy that is guaranteed to agree with it, so we
+      // report the failure rather than show an invented second opinion.
+      setError({
+        kind: 'unavailable',
+        message: e instanceof Error ? e.message : 'The advisory service could not be reached.',
+      });
+      setAdvisory(null);
     } finally {
       setLoading(false);
     }
@@ -170,16 +139,26 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
             <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-px" style={{ color: 'var(--heat-4)' }} />
             <div className="space-y-1">
               <p className="text-[0.65rem] font-mono font-bold uppercase tracking-wider" style={{ color: 'var(--heat-4)' }}>
-                Advisory withheld
+                {error.kind === 'withheld' ? 'Advisory withheld' : 'Advisory unavailable'}
               </p>
               <p className="text-[0.65rem] leading-relaxed" style={{ color: 'var(--text-2)' }}>
-                {error}
+                {error.message}
               </p>
               <p className="text-[0.6rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
-                The advisory is rule-based on the Layer-1 rainfall for a specific Panchayat and
-                date, so it refuses to run unless that value can be verified. Re-run the
-                projection for this Panchayat.
+                {error.kind === 'withheld'
+                  ? 'The advisory is rule-based on the Layer-1 rainfall for a specific Panchayat and date, so it refuses to run unless that value can be verified. Re-run the projection for this Panchayat.'
+                  : 'The advisory rules run on the server, against rainfall, temperature, soil, vegetation and land cover together. They are not reproduced in the browser, so no advice is shown rather than advice that could disagree with the server. The rainfall shown elsewhere is unaffected.'}
               </p>
+              {error.kind === 'unavailable' && (
+                <button
+                  type="button"
+                  onClick={loadAdvisory}
+                  className="text-[0.6rem] font-mono underline underline-offset-2 pt-0.5"
+                  style={{ color: 'var(--heat-4)' }}
+                >
+                  Retry
+                </button>
+              )}
             </div>
           </div>
         ) : advisory ? (

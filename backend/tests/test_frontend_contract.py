@@ -126,3 +126,27 @@ def test_advisory_hindi_param(client, monkeypatch):
     monkeypatch.setattr(main, "_phrase_call", ok)
     r = _adv(client, lang="hi-IN").json()
     assert r["advisory_text"].startswith("[hi-IN]") and r["actions"][0].startswith("[hi-IN]")
+
+
+# ── No second advisory rule table in the browser ─────────────────────────────
+# The rules live only in backend/advisory.py. A client-side copy cannot be kept in
+# step with them - it cannot see temperature, soil, NDVI or land cover at all - and
+# two rule tables means the farmer sees whichever one happened to answer, so an
+# outage could turn an `alert` into an `info` on identical numbers. The panel must
+# therefore show no advice rather than its own.
+PANEL_TSX = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "Frontend", "src", "components", "advisory", "AdvisoryPanel.tsx",
+)
+
+
+def test_advisory_panel_has_no_second_rule_table():
+    if not os.path.exists(PANEL_TSX):
+        pytest.skip("Frontend/ is not mounted next to backend/")
+    src = open(PANEL_TSX, encoding="utf-8").read()
+    assert "generateLocalAdvisory" not in src
+    # ...but it must still say why there is no advice
+    assert "Advisory withheld" in src and "Advisory unavailable" in src
+    # the engine's rainfall tiers must not be re-declared in the browser
+    for mm in ("64.5", "24.5"):
+        assert mm not in src, f"AdvisoryPanel re-declares the backend tier {mm} mm"

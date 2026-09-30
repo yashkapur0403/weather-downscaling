@@ -1165,11 +1165,11 @@ cd .qa-b1/Frontend && npm run typecheck && npm run build
 
 ---
 
-## 20. Post-fix status: A-1 and A-2 addressed
+## 20. Post-fix status: A-1, A-2, A-5 and A-6 addressed
 
 The two High findings were fixed immediately after this report was written. The findings are kept
 above as they were found — nothing was rewritten to look better in hindsight — and this section
-records what changed and how it was verified. `pytest` went from 53 to **66 passed**.
+records what changed and how it was verified. `pytest` went from 53 to **69 passed**.
 
 ### 20.1 A-2 — the advisory now verifies the rainfall (fixed)
 
@@ -1220,20 +1220,48 @@ The sibling fields already used `??`, so this was the single inconsistent line. 
 advisory panel no longer masks a refused request: `api/backend.ts` now throws an `ApiError` carrying
 the HTTP status, and `AdvisoryPanel.loadAdvisory` treats **409/422 as a hard failure** — it renders an
 explicit "Advisory withheld" state with the server's explanation instead of silently falling back to the
-crop-agnostic local rule set. Without that second change the new 409 would have been swallowed by the
+local rule set (now deleted — §20.3). Without that second change the new 409 would have been swallowed by the
 old `catch` and converted back into a plausible-looking advisory.
 
-### 20.3 Consequences for the findings list
+### 20.3 A-5 — the client-side fallback advisory is gone (fixed)
+
+`AdvisoryPanel.tsx` carried its own rainfall rule table — `>= 64.5` alert, `>= 24.5` warning,
+`>= 6.5` watch, else info — against the engine's `64.5` / `24.5` / `< 3.0 × window` (`advisory.py`).
+The two disagreed in the band a farmer is most likely to see, and the fallback could also not read
+temperature, soil, NDVI or land cover at all, so an outage could turn an `alert` into an `info` on the
+same numbers.
+
+The table has been deleted. A network failure now renders an explicit **"Advisory unavailable"** state
+saying the rules run server-side and are not reproduced in the browser, with a **Retry** action; a
+**409/422** still renders **"Advisory withheld"** with the server's own explanation (§20.2). The panel
+can therefore no longer show advice that differs from the backend: it shows either the backend's answer
+or no advice at all. `backend/tests/test_frontend_contract.py` guards this at source level — the panel
+must not re-declare the `64.5` / `24.5` mm tiers and must still carry both states — because this repo has
+no frontend test harness.
+
+### 20.4 A-6 — an unknown crop stage no longer fires heat stress (fixed)
+
+`_r_heat` treated `stage = None` as heat-sensitive and merely downgraded the severity, so an unknown
+input *increased* the hazard while the rule's own `condition` string said the stage had to be in the
+sensitive set. It now returns `evaluable=False`, `fired=False`, `severity="none"` and the flip hint
+`"crop stage missing - heat stress could not be evaluated"` when the stage is unknown: a missing input
+can no longer manufacture a hazard. `evaluate()` already lowered confidence for a missing stage, so the
+uncertainty is reported instead of acted upon. Verified by a stage sweep at wheat / 34.5 °C — `sowing`,
+`vegetative`, `maturity` → `low`; `flowering`, `grain_filling` → `high`; unknown → `evaluable=False`,
+confidence 0.5 — and covered by two tests in `backend/tests/test_advisory.py`.
+
+### 20.5 Consequences for the findings list
 
 | ID | Status |
 |---|---|
 | **A-1** (falsy-zero substitution) | **Fixed** — `??` + the panel surfaces refusals |
 | **A-2** (advisory not bound to Panchayat/date) | **Fixed** — resolve, check, refuse, and publish what was checked |
 | A-3, A-4 (stale Layer-2 summary, season mean labelled with a date) | Open — needs a `layer2_panchayat_mapping.py` re-run and a fingerprint stamp |
-| A-5 (divergent fallback advisory) | Partially mitigated (refusals no longer fall back); the local rule set itself still differs from the backend |
-| A-6 … A-12, B-1, B-2, D-7 | Open — see §16 |
+| A-5 (divergent fallback advisory) | **Fixed** — the client-side rule table is deleted; an outage shows an explicit "Advisory unavailable" state instead of a second opinion |
+| A-6 (unknown stage fired heat stress) | **Fixed** — R3 is unevaluable without a known crop stage |
+| A-7 … A-12, B-1, B-2, D-7 | Open — see §16 |
 
-### 20.4 The judge question, re-answered
+### 20.6 The judge question, re-answered
 
 With A-1 and A-2 fixed, the previously unproven links are now enforced by the server rather than by
 client good behaviour:
@@ -1246,6 +1274,8 @@ client good behaviour:
   is rejected with both numbers;
 * **no silent substitution** — the substitution path in the frontend is closed and the server refuses
   rather than substitutes;
+* **one advisory rule set** — the browser carries no second rule table, so an unreachable backend yields
+  "Advisory unavailable" rather than different advice on the same numbers;
 * **no unused-data claims** — unchanged, still open for `sand`/`ocd`/`ph`/`bdod` (**A-10**): those are
   transported but read by no rule.
 

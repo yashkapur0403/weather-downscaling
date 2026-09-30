@@ -261,21 +261,31 @@ def _r_irrigation(i: PanchayatInput, p: dict) -> RuleResult:
 
 
 def _r_heat(i: PanchayatInput, p: dict) -> RuleResult:
+    """Heat stress. Requires BOTH a temperature and a known crop stage.
+
+    An unknown stage is NOT heat-sensitive by default: `p["heat"]` is the
+    threshold for the crop's sensitive window, so firing without knowing the
+    stage would assert something the inputs do not support. A missing input must
+    not manufacture a hazard - the rule reports itself unevaluable instead, and
+    `evaluate()` already lowers confidence for the missing stage.
+    """
     thr = p["heat"]
-    if not i.has_temp():
+    if not i.has_temp() or i.stage is None:
+        missing = ("temperature" if not i.has_temp() else "crop stage")
         return RuleResult(
             rule_id="R3_HEAT_STRESS", name="Heat stress", fired=False, evaluable=False,
-            inputs={"temperature_c": None, "stage": i.stage or "unknown"},
-            condition=f"temperature_c >= {_n(thr)} AND stage in {sorted(p['stages'])} for {i.crop}",
-            flip_hint="temperature missing - rule could not be evaluated",
+            inputs={"temperature_c": i.temp() if i.has_temp() else None,
+                    "stage": i.stage or "unknown"},
+            condition=(f"temperature_c >= {_n(thr)} AND stage in {sorted(p['stages'])} "
+                       f"for {i.crop} (requires a known stage)"),
+            flip_hint=f"{missing} missing - heat stress could not be evaluated",
         )
-    stage_unknown = i.stage is None
-    sensitive = stage_unknown or i.stage in p["stages"]
+    sensitive = i.stage in p["stages"]
     fired = i.temp() >= thr and sensitive
     return RuleResult(
         rule_id="R3_HEAT_STRESS", name="Heat stress", fired=fired,
-        severity="high" if fired and not stage_unknown else ("medium" if fired else "none"),
-        inputs={"temperature_c": i.temp(), "stage": i.stage or "unknown"},
+        severity="high" if fired else "none",
+        inputs={"temperature_c": i.temp(), "stage": i.stage},
         condition=f"temperature_c >= {_n(thr)} AND stage in {sorted(p['stages'])} for {i.crop}",
         margin_pct=_margin(i.temp(), thr),
         flip_hint=(f"would not fire if temperature stayed below {_n(thr)} C or the crop were outside "
