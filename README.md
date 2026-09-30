@@ -88,7 +88,7 @@ ERA5-Land daily T/Tmax/Td   ─┘            (optional channels)         │
   dewpoint, all configurable for ablation.
 * **Target (Y):** CHIRPS daily rainfall on the same fine grid — a **reference
   product, not absolute ground truth**.
-* **Model:** ~150k-parameter residual U-Net (learns the *correction* to the
+* **Model:** 117,329-parameter residual U-Net (learns the *correction* to the
   bilinear baseline, so it can never do worse than the baseline by
   construction of the residual parameterization).
 * **Loss:** masked MAE (default) or a heavy-rain-weighted MAE (selected by
@@ -109,7 +109,7 @@ Two named regions live in `scripts/config.py` (`config.REGIONS`):
 | CHIRPS v2.0 0.05° daily | fine reference (Y) | UCSB CHC | `data/raw/chirps/` (monthly) |
 | SRTM 30 m (Terrarium) | DEM channel | AWS Open Data tiles | `data/raw/dem/dem_roi_<region>.npz` |
 | ERA5-Land daily T/Tmax/dewpoint | auxiliary channels | Open-Meteo archive API | `data/raw/era5/era5_daily_<region>.npz` (per-year caches) |
-| GADM 4.1 admin polygons | **aux**: state/district/block mapping | gadom.org | `data/raw/admin/` → `data/aux_data/admin/` |
+| GADM 4.1 admin polygons | **aux**: state/district/block mapping | gadm.org | `data/raw/admin/` → `data/aux_data/admin/` |
 | SoilGrids v2.0 (ISRIC) | **aux**: sand/clay/OC/pH/bulk density | rest.isric.org | `data/raw/soil/batches/` → `data/aux_data/soil_soilgrids_<region>.npz` |
 | NOAA CDR VIIRS NDVI | **aux**: vegetation composites | NCEI | `data/raw/vegetation/slices/` → `data/aux_data/ndvi_monthly_<region>.npz` |
 | ESA WorldCover 2021 | **aux**: land-cover fractions | S3 COG tiles | `data/raw/lulc/` → `data/aux_data/lulc_fractions_<region>.npz` |
@@ -448,5 +448,8 @@ spatial coverage of source polygons, not an unfinished processing step.
   predicted at ~35 mm. The ensemble beats the baseline at every reported
   threshold; it does not make extreme rainfall well predicted. No
   probabilistic/uncertainty output yet.
-* The U-Net is deliberately small (~150k params). Operational use would consume
-  IMD Block forecasts as coarse input, whose error propagates through Layer 1.
+* The U-Net is deliberately small (117,329 params for the 5-channel/width-16 deployed
+  model — the value is stamped in `outputs/metrics/layer1_manifest.json` and served by
+  `/api/metrics` as `n_parameters`, so it can be checked rather than trusted). Operational
+  use would consume IMD Block forecasts as coarse input, whose error propagates through
+  Layer 1.
