@@ -1,5 +1,22 @@
 # Layer 1 — Coarse-to-Fine Weather Downscaling (dataset complete; model validated on pilot)
 
+> **Which branch holds the submission?** This branch (`main`) is the **Layer-1 + Layer-2 ML pipeline
+> snapshot**: the Deccan dataset, the auxiliary layers, the block/Panchayat mapping and the older
+> Western-Ghats pilot model run. It carries **no trained Deccan model and no application** — the numbers
+> in §4 are the pilot's, and §5 is the recipe for training the Deccan model.
+>
+> The complete deliverable is on **`fix/qa-hardening`**, the repository's default branch: the trained
+> Layer-1 model (deployed E+F ensemble, `models/ensemble.json`), the served 0.05° grid
+> `outputs/prediction_test.npz`, the Layer-2 Panchayat products, the Layer-3 advisory backend (`backend/`)
+> and the Next.js dashboard (`Frontend/`), plus `LOGICAL_VALIDATION_REPORT.md`,
+> `COMPREHENSIVE_QA_TEST_REPORT.md` and the QA evidence.
+>
+> ```bash
+> git clone -b fix/qa-hardening https://github.com/yashkapur0403/weather-downscaling.git
+> ```
+>
+> Everything below documents the pipeline **as it stands on this branch**.
+
 **What it is:** the coarse-to-fine weather refinement engine for the SIH project.
 Coarse IMD 0.25° daily rainfall + SRTM elevation + ERA5-Land daily context →
 small residual U-Net → fine 0.05° daily rainfall, evaluated against CHIRPS 0.05°
