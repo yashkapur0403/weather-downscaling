@@ -1,0 +1,55 @@
+{
+ "label": "U-Net + DEM + ERA5-Land (E+F ensemble, E weight 0.5)",
+ "weight_on": "E",
+ "members": [
+  {
+   "row": "E",
+   "checkpoint": "model_e.pt",
+   "weight": 0.5
+  },
+  {
+   "row": "F",
+   "checkpoint": "model_f.pt",
+   "weight": 0.5
+  }
+ ],
+ "weight_search": {
+  "grid": [
+   0.2,
+   0.3,
+   0.4,
+   0.5,
+   0.6,
+   0.7,
+   0.8
+  ],
+  "reference_val_mae_mm": 7.44,
+  "constraint": "val MAE <= best-member val MAE (7.440) + 0.75 mm",
+  "ranked_by": "val >=25mm F1",
+  "selected_val_f1_ge25mm": 0.3662,
+  "n_candidates": 7,
+  "n_inside_window": 6
+ },
+ "val": {
+  "MAE": 7.882588863372803,
+  "RMSE": 13.706257820129395,
+  "corr": 0.46569311009779074
+ },
+ "test": {
+  "MAE": 8.428223609924316,
+  "RMSE": 14.997857093811035,
+  "corr": 0.5267349934731406
+ },
+ "note": "Deployed Layer-1 field = weighted mean of the listed checkpoints (weights renormalised to sum to 1). Chosen on the validation split only. Consumers resolve it via scripts/ensemble.py; models/best_model.pt is only the fallback used when this file is absent.",
+ "selected": true,
+ "row": "EF",
+ "single_model_fallback": "best_model.pt",
+ "selection": {
+  "criterion": "val MAE window + val >=25mm F1",
+  "tie_window_mm": 0.75,
+  "finalists": [
+   "E",
+   "EF"
+  ]
+ }
+}

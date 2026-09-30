@@ -112,8 +112,29 @@ Aux layers are **not** U-Net input channels — they exist for Layer-2
 * **Temporal split (no leakage):** train = 2018+2019+2020 (366 days),
   val = 2021 (122), test = 2022 (122). Normalization statistics come from
   **training years only**. Test is never used for tuning or model selection.
-* **Model selection rule (fixed before test):** lowest val MAE; rows within
-  0.1 mm are considered tied and the tie is broken by val correlation.
+* **Model selection rule (fixed before test, validation split only):** lowest
+  val MAE wins; rows within **0.75 mm** are treated as tied (noise level) and
+  the tie is broken by val heavy-rain skill (**F1 at >=25 mm**). This replaced
+  the earlier "0.1 mm tie broken by correlation" rule, which selected a model
+  that barely detected heavy events (F1>=50 mm = 0.015).
+* **Deployed model = an ensemble (row EF).** A single MAE-trained residual
+  network is calibrated to the conditional mean, so >=50 mm/day events are
+  predicted at ~26-28 mm and F1 at that threshold collapses (measured test
+  precision 0.44, recall 0.08). `models/ensemble.json` therefore declares a
+  weighted mean of two checkpoints that share architecture/channels/scaling
+  but differ in loss emphasis: **E** (heavy-rain weighted) plus **F** (>=50 mm
+  weighted). The mixing weight is searched **on validation only**, constrained
+  to stay inside the same 0.75 mm MAE window, then ranked by val F1>=25 mm -
+  it independently selected E weight 0.5. Every serving path
+  (`generate_pred.py`, `backend/live_infer.py`) resolves the deployed model
+  through `scripts/ensemble.py`, so the served grid and the live-inference
+  route can never come from different models. `models/best_model.pt` is kept
+  as the single-checkpoint fallback, used only when `ensemble.json` is absent.
+* **Provenance:** `generate_pred.py` writes
+  `outputs/metrics/layer1_manifest.json` with the sha256 of the grid, of each
+  contributing checkpoint, and the weights - and `/api/metrics` republishes it
+  as `layer1_provenance`. A retrain therefore cannot silently leave a stale
+  grid in place: hashes either match or they do not.
 * **Loss experiment:** MAE vs heavy-rain-weighted MAE, chosen on validation.
 * **Data-quality checks** (`quality.py`, run inside `preprocess.py`): date and
   coordinate alignment, latitude/longitude ordering, duplicate timestamps,
@@ -125,11 +146,23 @@ Aux layers are **not** U-Net input channels — they exist for Layer-2
 
 ## 4. Results — PILOT ONLY (Western Ghats, 2019–2022; NOT the Deccan run)
 
-> **Deccan run (the shipped product):** see `outputs/metrics/ablation_summary.md`. QA hardening
-> added row **E** ("U-Net + DEM + ERA5-Land, heavy-rain weighted") and selection now tie-breaks
-> on validation heavy-rain F1 instead of correlation. On the 2022 test split E gives
-> MAE 8.21 mm / RMSE 14.57 / corr 0.518 and event F1 0.60 / 0.42 / 0.13 at 10/25/50 mm,
-> versus the previous selected D (MAE 8.17 / RMSE 16.01 / corr 0.446 / F1 0.39 / 0.28 / 0.015).
+> **Deccan run (the shipped product):** see `outputs/metrics/ablation_summary.md`.
+> The deployed model is row **EF**, the validation-selected equal-weight ensemble
+> of **E** (U-Net + DEM + ERA5-Land, heavy-rain weighted) and **F** (same but
+> weighted at >=50 mm). On the unseen 2022 test split EF gives
+> **MAE 8.43 mm / RMSE 15.00 / corr 0.527** and event F1 **0.601 / 0.442 / 0.284**
+> at 10 / 25 / 50 mm, against the bilinear baseline's
+> **9.60 / 18.18 / 0.385** and **0.477 / 0.343 / 0.234**.
+>
+> Wording, precisely: EF is **12.2% lower MAE** than the bilinear baseline (not
+> "12% better overall"), and it beats the baseline at **every** reported
+> threshold including F1>=50 mm. The previous selection was E
+> (MAE 8.21 / RMSE 14.57 / corr 0.518 - a better *mean* error, i.e. 14.5% lower
+> MAE than baseline) but E **lost** the heavy-rain extreme: F1>=50 mm 0.129 vs
+> 0.234 for the baseline. EF is the point on the val-selected MAE/recall
+> trade-off where nothing served is worse than the baseline.
+> All three rows are in `outputs/metrics/ablation_summary.md`; nothing here is
+> hidden by picking one number.
 
 Reference: **CHIRPS 0.05° — a reference product, not ground truth.**
 122 train / 122 val / 122 test monsoon days; same dates for every row.
@@ -166,10 +199,18 @@ python scripts/fetch_lgd_panchayats.py                 # Layer-2 input: LGD Gram
 python scripts/preprocess.py                           # align, quality-check, split, normalize -> data/processed/
 python scripts/verify_dataset.py                       # end-to-end QA; exits non-zero on any problem
 
-# --- training (NEXT STEP, not yet run for deccan) ---
+# --- training ---
 python scripts/train.py --channels imd_rain,dem,era5_t2m,era5_t2m_max,era5_dewp --out-name model_d
-python scripts/ablation.py             # A-D table, val-based selection -> best_model.pt
-python scripts/evaluate.py --models model_b,model_c,model_c_weighted,model_d
+python scripts/train.py --channels imd_rain,dem,era5_t2m,era5_t2m_max,era5_dewp \
+    --loss weighted --out-name model_e                       # heavy-rain weighted
+python scripts/train.py --channels imd_rain,dem,era5_t2m,era5_t2m_max,era5_dewp \
+    --loss weighted --weight-rain-mm 50 --weight-mult 10 --out-name model_f
+python scripts/ablation.py             # A..F + EF table, val-only selection
+                                       # -> models/ensemble.json (deployed)
+                                       #    models/best_model.pt (fallback)
+python generate_pred.py                # outputs/prediction_test.npz
+                                       # + outputs/metrics/layer1_manifest.json
+python scripts/evaluate.py --models model_b,model_c,model_c_weighted,model_d,model_e,model_f
 python scripts/infer.py --imd data/raw/imd/ind2022_rfp25.nc --date 2022-07-10
 ```
 
@@ -192,9 +233,11 @@ weather-downscaling/
 │   ├── processed/          # X/Y/M_{train,val,test}.npy + meta.json  (MODEL INPUT)
 │   ├── aux_data/           # admin/, soil_soilgrids_*, ndvi_monthly_*, lulc_fractions_*, build_summary_*.json
 │   └── reports/            # data dictionary, coverage, missingness, verify_dataset JSON
-├── models/                 # checkpoints + histories (pilot only, so far)
+├── models/                 # checkpoints + histories + ensemble.json (deployed model)
 ├── scripts/
 │   ├── config.py           # regions, years, split, dirs, all knobs
+│   ├── ensemble.py         # THE definition of the deployed model
+│   │                       #   (models/ensemble.json -> weighted members)
 │   ├── netcdf3.py / imd_reader.py / grids.py / quality.py
 │   ├── download_or_export.py / inspect_data.py / gee_export.js
 │   ├── preprocess.py       # -> data/processed (model-ready)

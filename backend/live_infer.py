@@ -57,20 +57,25 @@ class ModelRunner:
         sys.path.insert(0, str(self.root / "scripts"))
         import config
         from infer import build_channels            # noqa: F401  (reused, not re-implemented)
-        from train import SmallUNet
+        # ONE definition of "what the deployed model is": scripts/ensemble.py
+        # resolves models/ensemble.json (the weighted-member declaration written
+        # by scripts/ablation.py) and falls back to models/best_model.pt. Using
+        # it here too means live inference and outputs/prediction_test.npz can
+        # never be produced by different models.
+        from ensemble import ensemble_predict_mm, load_members, load_single
         self._torch, self._config, self._build = torch, config, build_channels
         self.region = region
 
-        ckpt_path = Path(checkpoint) if checkpoint else config.MODELS / "best_model.pt"
-        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-        self.channels = ckpt.get("channels") or ckpt["args"]["channels"]
-        self.rain_scale = float(ckpt.get("rain_scale", 100.0))
-        self.residual = bool(ckpt.get("residual", True))
-        self.checkpoint_name = ckpt_path.name
-        self.model = SmallUNet(cin=len(self.channels), width=int(ckpt.get("width", 16)), residual=self.residual)
-        self.model.load_state_dict(ckpt["model"])
-        self.model.eval()
-        self.n_parameters = sum(p.numel() for p in self.model.parameters())
+        scripts_dir = self.root / "scripts"
+        if checkpoint:
+            self.nets, self.spec, self.manifest = load_single(checkpoint, scripts_dir)
+        else:
+            self.nets, self.spec, self.manifest = load_members(config.MODELS, scripts_dir)
+        self.channels = self.spec["channels"]
+        self.rain_scale = float(self.spec["rain_scale"])
+        self.residual = bool(self.spec["residual"])
+        self.checkpoint_name = " + ".join(self.spec["members"])
+        self.n_parameters = int(self.spec["n_parameters"] or 0)
 
         meta_path = config.PROCESSED / "meta.json"
         if not meta_path.exists():
@@ -142,9 +147,11 @@ class ModelRunner:
             raise DataUnavailable(f"non-finite model input for {date} (missing IMD/ERA5 values)")
         i0 = self.channels.index("imd_rain")
         base = torch.from_numpy(X[:, i0:i0 + 1].copy()) if self.residual else None
-        with torch.no_grad():
-            out = self.model(torch.from_numpy(X), baseline=base).numpy()
-        pred = np.clip(out[0, 0] * self.rain_scale, 0.0, None).astype("float32")
+        # same helper every other serving path uses -> live inference cannot
+        # disagree with outputs/prediction_test.npz
+        pred = ensemble_predict_mm(
+            self.nets, self.spec, torch.from_numpy(X), base
+        ).numpy()[0].astype("float32")
         self._cache[date] = (pred, fine_lat, fine_lon)
         while len(self._cache) > self._cache_days:
             self._cache.popitem(last=False)

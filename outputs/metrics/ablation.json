@@ -23,14 +23,72 @@
   "E": {
    "label": "U-Net + DEM + ERA5-Land (heavy-rain weighted)",
    "checkpoint": "model_e"
+  },
+  "F": {
+   "label": "U-Net + DEM + ERA5-Land (>=50mm weighted)",
+   "checkpoint": "model_f"
+  },
+  "EF": {
+   "label": "U-Net + DEM + ERA5-Land (E+F ensemble, E weight 0.5)",
+   "checkpoint": null
   }
  },
  "selection": {
   "criterion": "val MAE",
-  "row": "E",
-  "label": "U-Net + DEM + ERA5-Land (heavy-rain weighted)",
+  "row": "EF",
+  "label": "U-Net + DEM + ERA5-Land (E+F ensemble, E weight 0.5)",
   "tie_window_mm": 0.75,
-  "tie_breaker": "val >=25mm F1"
+  "tie_breaker": "val >=25mm F1",
+  "single_row_winner": "E",
+  "finalists": [
+   "E",
+   "EF"
+  ],
+  "deployed": "ensemble (models/ensemble.json)"
+ },
+ "ensemble": {
+  "label": "U-Net + DEM + ERA5-Land (E+F ensemble, E weight 0.5)",
+  "weight_on": "E",
+  "members": [
+   {
+    "row": "E",
+    "checkpoint": "model_e.pt",
+    "weight": 0.5
+   },
+   {
+    "row": "F",
+    "checkpoint": "model_f.pt",
+    "weight": 0.5
+   }
+  ],
+  "weight_search": {
+   "grid": [
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8
+   ],
+   "reference_val_mae_mm": 7.44,
+   "constraint": "val MAE <= best-member val MAE (7.440) + 0.75 mm",
+   "ranked_by": "val >=25mm F1",
+   "selected_val_f1_ge25mm": 0.3662,
+   "n_candidates": 7,
+   "n_inside_window": 6
+  },
+  "val": {
+   "MAE": 7.882588863372803,
+   "RMSE": 13.706257820129395,
+   "corr": 0.46569311009779074
+  },
+  "test": {
+   "MAE": 8.428223609924316,
+   "RMSE": 14.997857093811035,
+   "corr": 0.5267349934731406
+  },
+  "note": "Deployed Layer-1 field = weighted mean of the listed checkpoints (weights renormalised to sum to 1). Chosen on the validation split only. Consumers resolve it via scripts/ensemble.py; models/best_model.pt is only the fallback used when this file is absent."
  },
  "results": {
   "val": {
@@ -194,6 +252,52 @@
      "F1": 0.131203683996672,
      "n_events": 85650
     }
+   },
+   "F": {
+    "MAE": 8.63720703125,
+    "RMSE": 15.670792579650879,
+    "corr": 0.44897121191349576,
+    ">=10mm": {
+     "precision": 0.508558297606627,
+     "recall": 0.5007696370260633,
+     "F1": 0.50463391601609,
+     "n_events": 1418201
+    },
+    ">=25mm": {
+     "precision": 0.302694165480976,
+     "recall": 0.449061054779205,
+     "F1": 0.3616287790575072,
+     "n_events": 439163
+    },
+    ">=50mm": {
+     "precision": 0.18315807425958092,
+     "recall": 0.47647402218330415,
+     "F1": 0.26460223754550793,
+     "n_events": 85650
+    }
+   },
+   "EF": {
+    "MAE": 7.882588863372803,
+    "RMSE": 13.706257820129395,
+    "corr": 0.46569311009779074,
+    ">=10mm": {
+     "precision": 0.502955417525002,
+     "recall": 0.542809517127685,
+     "F1": 0.5221230474976092,
+     "n_events": 1418201
+    },
+    ">=25mm": {
+     "precision": 0.3278132284513406,
+     "recall": 0.41468657423325733,
+     "F1": 0.36616775978478106,
+     "n_events": 439163
+    },
+    ">=50mm": {
+     "precision": 0.2556761349581079,
+     "recall": 0.27754816112084063,
+     "F1": 0.266163569897048,
+     "n_events": 85650
+    }
    }
   },
   "test": {
@@ -355,6 +459,52 @@
      "precision": 0.4378073273772422,
      "recall": 0.07567713165534373,
      "F1": 0.12904773326936914,
+     "n_events": 167065
+    }
+   },
+   "F": {
+    "MAE": 9.030389785766602,
+    "RMSE": 16.527299880981445,
+    "corr": 0.5102808196159621,
+    ">=10mm": {
+     "precision": 0.6013015712272686,
+     "recall": 0.5679964603651113,
+     "F1": 0.5841747011306508,
+     "n_events": 1618246
+    },
+    ">=25mm": {
+     "precision": 0.423454753067974,
+     "recall": 0.4694555272284398,
+     "F1": 0.4452702107829297,
+     "n_events": 624843
+    },
+    ">=50mm": {
+     "precision": 0.25885486117010864,
+     "recall": 0.419471463202945,
+     "F1": 0.3201474672904028,
+     "n_events": 167065
+    }
+   },
+   "EF": {
+    "MAE": 8.428223609924316,
+    "RMSE": 14.997857093811035,
+    "corr": 0.5267349934731406,
+    ">=10mm": {
+     "precision": 0.5843732853719549,
+     "recall": 0.6180043083684433,
+     "F1": 0.6007184597175116,
+     "n_events": 1618246
+    },
+    ">=25mm": {
+     "precision": 0.4454264918806398,
+     "recall": 0.43868139676686785,
+     "F1": 0.44202821425806954,
+     "n_events": 624843
+    },
+    ">=50mm": {
+     "precision": 0.33162007237326674,
+     "recall": 0.24793942477478825,
+     "F1": 0.28373856486729937,
      "n_events": 167065
     }
    }

@@ -5,9 +5,13 @@ C,U-Net + DEM,val,7.045,14.156,0.3185,0.258,0.132,0.077
 Cw,U-Net + DEM (weighted loss),val,11.398,18.801,0.2258,0.385,0.226,0.139
 D,U-Net + DEM + ERA5-Land,val,6.933,13.787,0.3457,0.312,0.174,0.023
 E,U-Net + DEM + ERA5-Land (heavy-rain weighted),val,7.440,12.823,0.4602,0.533,0.355,0.131
+F,U-Net + DEM + ERA5-Land (>=50mm weighted),val,8.637,15.671,0.4490,0.505,0.362,0.265
+EF,"U-Net + DEM + ERA5-Land (E+F ensemble, E weight 0.5)",val,7.883,13.706,0.4657,0.522,0.366,0.266
 A,Bilinear IMD baseline,test,9.603,18.183,0.3850,0.477,0.343,0.234
 B,U-Net rainfall only,test,8.515,16.928,0.3957,0.281,0.226,0.115
 C,U-Net + DEM,test,8.362,16.496,0.4193,0.332,0.231,0.104
 Cw,U-Net + DEM (weighted loss),test,12.268,20.108,0.2868,0.440,0.305,0.188
 D,U-Net + DEM + ERA5-Land,test,8.167,16.014,0.4461,0.393,0.281,0.015
 E,U-Net + DEM + ERA5-Land (heavy-rain weighted),test,8.206,14.567,0.5181,0.602,0.425,0.129
+F,U-Net + DEM + ERA5-Land (>=50mm weighted),test,9.030,16.527,0.5103,0.584,0.445,0.320
+EF,"U-Net + DEM + ERA5-Land (E+F ensemble, E weight 0.5)",test,8.428,14.998,0.5267,0.601,0.442,0.284
