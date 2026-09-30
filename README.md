@@ -1,9 +1,22 @@
-# Layer 1 — Coarse-to-Fine Weather Downscaling (dataset complete; model validated on pilot)
+# Panchayat Rainfall Downscaling & Agro-Advisory — Layers 1–3
 
-**What it is:** the coarse-to-fine weather refinement engine for the SIH project.
-Coarse IMD 0.25° daily rainfall + SRTM elevation + ERA5-Land daily context →
-small residual U-Net → fine 0.05° daily rainfall, evaluated against CHIRPS 0.05°
-as the fine-resolution **reference**.
+**What it is:** the complete SIH pipeline, all three layers, in one repository.
+**Layer 1** refines coarse IMD 0.25° daily rainfall with SRTM elevation and ERA5-Land
+context through a small residual U-Net into a fine 0.05° daily rainfall field, scored
+against CHIRPS 0.05° as the fine-resolution **reference**. **Layer 2** maps that field to
+the LGD Panchayat boundaries (86,103 of 87,735 mapped, 98.1%). **Layer 3** turns a
+Panchayat's Layer-1 rainfall into a rule-based, explained crop advisory served by a FastAPI
+backend (`backend/`, port 8000) and shown in a Next.js dashboard (`Frontend/`, port 3000).
+
+**Run it in two terminals:**
+
+```bash
+cd backend  && pip install -r requirements.txt && uvicorn app:app --reload --port 8000
+cd Frontend && npm install && npm run dev          # http://localhost:3000
+```
+
+The backend runs with **no API keys** (advisory and explain fall back to deterministic
+templates). `backend/README.md` documents every route and what data backs it.
 
 **Current status (be honest when presenting):**
 
