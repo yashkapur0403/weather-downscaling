@@ -90,20 +90,35 @@ class Store:
             "lat": lat, "lon": lon, "location_precision": prec,
         }
 
-    def find(self, name: Optional[str], block: Optional[str] = None, district: Optional[str] = None,
-             state: Optional[str] = None, panchayat_id: Optional[int] = None):
+    def matches(self, name: Optional[str], block: Optional[str] = None, district: Optional[str] = None,
+                state: Optional[str] = None, panchayat_id: Optional[int] = None) -> pd.DataFrame:
+        """Every row this lookup could mean. More than one => the caller MUST disambiguate
+        (a bare name is NOT enough when several Panchayats share it - see find())."""
         d = self.df
         if panchayat_id is not None:
-            h = d[d["panchayat_id"] == panchayat_id]
-            return h.iloc[0] if len(h) else None
+            return d[d["panchayat_id"] == panchayat_id]
         if not name:
-            return None
+            return d.iloc[0:0]
         m = d["_n_name"] == norm(name)
+        if not m.any():
+            return d.iloc[0:0]
         for col, val in (("_n_block", block), ("_n_dist", district), ("_n_state", state)):
             if val and (m & (d[col] == norm(val))).any():
                 m &= d[col] == norm(val)
-        h = d[m]
+        return d[m]
+
+    def find(self, name: Optional[str], block: Optional[str] = None, district: Optional[str] = None,
+             state: Optional[str] = None, panchayat_id: Optional[int] = None):
+        """Single best row (first match). Callers that may receive an ambiguous name should
+        use matches() and refuse when len > 1 rather than silently taking a different Panchayat."""
+        h = self.matches(name, block, district, state, panchayat_id)
         return h.iloc[0] if len(h) else None
+
+    @staticmethod
+    def candidate_dicts(h: pd.DataFrame, limit: int = 10) -> list[dict]:
+        return [{"panchayat_id": int(r.panchayat_id), "panchayat_name": r.panchayat_name,
+                 "block_name": r.block_name, "district": r.district, "state": r.state}
+                for r in h.head(limit).itertuples()]
 
     # ---------------------------------------------------------- coordinates
     def _admin_centres(self):

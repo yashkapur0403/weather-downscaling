@@ -88,7 +88,7 @@ def test_advisory_contract(client, monkeypatch):
     monkeypatch.setattr(main, "_phrase_call", ok)
     r = _adv(client, rainfall_mm=70).json()
     assert ADVISORY_KEYS <= set(r) and r["severity"] == "alert" and r["actions"]
-    assert set(r["evidence"]) == {"rainfall_mm", "risk_level", "temperature_c", "humidity_pct"}
+    assert set(r["evidence"]) == {"rainfall_mm", "risk_level", "temperature_c", "humidity_pct", "aux"}
     assert r["evidence"]["risk_level"] == "very_heavy" and r["crop"] == "wheat" and r["stage"] == "general"
 
 

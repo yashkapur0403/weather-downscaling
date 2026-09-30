@@ -105,18 +105,20 @@ class SmallUNet(nn.Module):
 
 
 # --------------------------------------------------------------------------
-def make_loss(name: str, rain_scale: float):
+def make_loss(name: str, rain_scale: float, weight_rain_mm: float | None = None,
+              weight_mult: float | None = None):
     """Return loss(pred_norm, y_norm, mask) with heavy-rain emphasis options."""
     if name == "mae":
         def loss(p, y, m):
             return ((p - y).abs() * m).sum() / m.sum().clamp(min=1.0)
         return loss
     if name == "weighted":
-        # emphasize heavy-rain pixels (>= config.WEIGHT_RAIN_MM, train-data scale)
-        thr = config.WEIGHT_RAIN_MM / rain_scale
+        # emphasize heavy-rain pixels (>= weight_rain_mm, train-data scale)
+        thr = (config.WEIGHT_RAIN_MM if weight_rain_mm is None else weight_rain_mm) / rain_scale
+        mult = config.WEIGHT_MULT if weight_mult is None else weight_mult
 
         def loss(p, y, m):
-            w = m * (1.0 + (config.WEIGHT_MULT - 1.0) * (y >= thr).float())
+            w = m * (1.0 + (mult - 1.0) * (y >= thr).float())
             return ((p - y).abs() * w).sum() / w.sum().clamp(min=1.0)
         return loss
     if name == "log1p":
@@ -190,6 +192,10 @@ def main():
                     help="random NxN training crops (0 = full frames)")
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--weight-rain-mm", type=float, default=config.WEIGHT_RAIN_MM,
+                    help="loss='weighted': target >= this (mm/day) gets extra weight")
+    ap.add_argument("--weight-mult", type=float, default=config.WEIGHT_MULT,
+                    help="loss='weighted': weight multiplier for heavy-rain pixels")
     ap.add_argument("--val-subset", type=int, default=0,
                     help="evaluate epoch selection on an evenly-spaced subset "
                          "of N val days for speed (0 = full val). Final "
@@ -226,7 +232,7 @@ def main():
         return Xk, Yk, Mk, base
 
     T = {k: prep(k) for k in ("train", "val", "test")}
-    loss_fn = make_loss(args.loss, rain_scale)
+    loss_fn = make_loss(args.loss, rain_scale, args.weight_rain_mm, args.weight_mult)
 
     model = SmallUNet(cin=len(ci), width=args.width,
                       residual=bool(args.residual)).to(device)

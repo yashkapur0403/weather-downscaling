@@ -15,6 +15,8 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
+from pathlib import Path
+
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
@@ -23,6 +25,7 @@ from groq import AsyncGroq
 from pydantic import BaseModel, Field
 
 import advisory as adv
+import aux_layers
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -456,7 +459,23 @@ def _risk_level(mm: float) -> str:            # same bands as classifyRisk() in 
             else "heavy" if mm < 50 else "very_heavy")
 
 
-CropQ = Literal["general", "rice", "wheat", "cotton", "maize", "pulses"]
+_AUX = None
+
+
+def aux_layers_ctx():
+    """Lazy singleton for the committed soil/NDVI/land-cover arrays (None if absent)."""
+    global _AUX
+    if _AUX is None:
+        root = os.getenv("REPO_ROOT") or str(Path(__file__).resolve().parents[1])
+        try:
+            _AUX = aux_layers.AuxLayers(root)
+        except Exception as e:                       # never break the advisory because aux data is missing
+            log.warning("aux layers unavailable: %s", e)
+            _AUX = False
+    return _AUX or None
+
+
+CropQ = Literal["general", "rice", "wheat", "cotton", "maize", "pulses", "mustard", "bajra"]
 StageQ = Literal["general", "sowing", "vegetative", "flowering", "ripening", "harvest"]
 UI_DISCLAIMER = ("Rule-based prototype advisory. Thresholds are illustrative defaults and have not been "
                  "validated for field use; consult your local agriculture office.")
@@ -494,9 +513,16 @@ async def advisory_ui(
 ):
     if lang != "en-IN" and lang not in LangCode.__args__:
         raise HTTPException(422, f"unsupported lang {lang}")
+    aux_ctx = None
+    _aux = aux_layers_ctx()
+    if _aux is not None:
+        d = _aux.lookup_panchayat(panchayat_id, date or None)
+        if d:
+            aux_ctx = adv.AuxContext.model_validate(d)
     data = adv.PanchayatInput(
         panchayat=panchayat_name, crop=crop, stage=adv.FRONTEND_STAGE[stage],
         rainfall_mm=rainfall_mm, tmean_c=temperature_c, humidity_pct=humidity_pct,
+        aux=aux_ctx,
     )
     trace = adv.evaluate(data)
     text_en, source, _ = await farmer_message(trace)
@@ -518,7 +544,8 @@ async def advisory_ui(
     return AdvisoryUIResponse(
         advisory_text=text, severity=adv.SEVERITY_TO_UI[trace.severity], actions=list(actions_t),
         evidence={"rainfall_mm": rainfall_mm, "risk_level": _risk_level(rainfall_mm),
-                  "temperature_c": temperature_c, "humidity_pct": humidity_pct},
+                  "temperature_c": temperature_c, "humidity_pct": humidity_pct,
+                  "aux": aux_ctx.model_dump() if aux_ctx else None},
         data_date=date, disclaimer=UI_DISCLAIMER, crop=crop, stage=stage,
         confidence=trace.confidence, confidence_reasons=trace.confidence_reasons,
         message_source=source,

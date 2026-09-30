@@ -17,10 +17,14 @@ from __future__ import annotations
 import re
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Crop = Literal["general", "wheat", "rice", "maize", "mustard", "cotton", "bajra", "pulses"]
-Stage = Literal["sowing", "vegetative", "flowering", "grain_filling", "maturity", "harvest"]
+# Accept BOTH the engine's canonical stages and the frontend's names so the GET and
+# POST advisory endpoints share one vocabulary (frontend: general/ripening).
+Stage = Literal["sowing", "vegetative", "flowering", "grain_filling", "maturity",
+                "ripening", "harvest", "general"]
+STAGE_SYNONYM = {"general": None, "ripening": "maturity"}
 Severity = Literal["none", "low", "medium", "high"]
 _SEV_ORDER = {"none": 0, "low": 1, "medium": 2, "high": 3}
 
@@ -53,6 +57,9 @@ RULE_ACTIONS = {
     "R3_HEAT_STRESS": ["Irrigate lightly in the evening if water is available", "Avoid spraying in the afternoon"],
     "R4_DISEASE": ["Scout the field for early symptoms", "Consult your local agriculture office about preventive spray"],
     "R5_LODGING": ["Avoid irrigating just before strong wind", "Support or earth-up tall plants where possible"],
+    "R6_VEGETATION": ["Inspect the crop for water stress", "Check soil moisture before the next irrigation"],
+    "R7_SOIL_DRAINAGE": ["Open field drainage before the next spell", "Avoid heavy machinery on wet clay soil"],
+    "R8_LANDCOVER": ["Confirm this location is cropland before acting on the advisory"],
 }
 SEVERITY_TO_UI = {"none": "info", "low": "watch", "medium": "warning", "high": "alert"}
 
@@ -62,6 +69,11 @@ LOW_RAIN_MM_PER_DAY = 3.0   # below this * window_days => "low rain"
 HUMID_PCT = 85.0
 DISEASE_TMAX_RANGE = (22.0, 32.0)
 WIND_KMH = 40.0
+
+# Auxiliary-data thresholds (soil texture / satellite NDVI / land cover)
+NDVI_LOW = 0.30             # below this, satellite NDVI indicates sparse/stressed vegetation
+CLAY_HIGH_G_PER_KG = 350.0  # above this, soil drains slowly (waterlogging risk on wet days)
+SAND_HIGH_G_PER_KG = 600.0  # above this, soil holds little water (needs irrigation sooner)
 
 
 # --------------------------------------------------------------------------
@@ -73,6 +85,34 @@ class DownscalingInfo(BaseModel):
     downscaling model, computed offline) and should sum to panchayat - block."""
     block_rainfall_mm: float
     contributions: dict[str, float] = {}
+
+
+class AuxSoil(BaseModel):
+    depth: Optional[str] = None
+    sand_g_per_kg: Optional[float] = None
+    clay_g_per_kg: Optional[float] = None
+    ocd_dg_per_dm3: Optional[float] = None
+    ph: Optional[float] = None
+    bdod: Optional[float] = None
+
+
+class AuxNDVI(BaseModel):
+    value: Optional[float] = None
+    month: Optional[str] = None
+
+
+class AuxLULC(BaseModel):
+    fractions: dict[str, float] = {}
+    dominant: Optional[str] = None
+
+
+class AuxContext(BaseModel):
+    """Committed Layer-2 auxiliary values for the Panchayat's own grid cell.
+    Populated by aux_layers.AuxLayers; all fields are optional (sea / unsampled cells stay None)."""
+    cell: Optional[list[int]] = None
+    soil: Optional[AuxSoil] = None
+    ndvi: Optional[AuxNDVI] = None
+    lulc: Optional[AuxLULC] = None
 
 
 class PanchayatInput(BaseModel):
@@ -88,7 +128,12 @@ class PanchayatInput(BaseModel):
     wind_kmh: Optional[float] = Field(None, ge=0)
     soil_moisture: Optional[float] = Field(None, ge=0, le=1, description="SMAP volumetric, m3/m3")
     downscaling: Optional[DownscalingInfo] = None
+    aux: Optional[AuxContext] = None
 
+    @field_validator("stage")
+    @classmethod
+    def _norm_stage(cls, v):
+        return STAGE_SYNONYM.get(v, v)
 
     def has_temp(self) -> bool:
         return self.tmax_c is not None or self.tmean_c is not None
@@ -292,7 +337,84 @@ def _r_wind(i: PanchayatInput, p: dict) -> RuleResult:
     )
 
 
-_RULES = (_r_heavy_rain, _r_substantial_rain, _r_irrigation, _r_heat, _r_disease, _r_wind)
+def _r_vegetation(i: PanchayatInput, p: dict) -> RuleResult:
+    nd = i.aux.ndvi if (i.aux and i.aux.ndvi) else None
+    if nd is None or nd.value is None:
+        return RuleResult(
+            rule_id="R6_VEGETATION", name="Vegetation condition", fired=False, evaluable=False,
+            inputs={"ndvi": None, "ndvi_month": None},
+            condition=f"ndvi < {_n(NDVI_LOW)} (satellite vegetation index)",
+            flip_hint="NDVI not available for this cell",
+        )
+    v = nd.value
+    low_rain = i.rainfall_mm < LOW_RAIN_MM_PER_DAY * i.window_days
+    fired = v < NDVI_LOW
+    return RuleResult(
+        rule_id="R6_VEGETATION", name="Vegetation condition", fired=fired,
+        severity=("medium" if (fired and low_rain) else "low" if fired else "none"),
+        inputs={"ndvi": v, "ndvi_month": nd.month, "rainfall_mm": i.rainfall_mm},
+        condition=f"ndvi < {_n(NDVI_LOW)} (composite {nd.month})",
+        margin_pct=_margin(v, NDVI_LOW),
+        flip_hint=(f"would clear if NDVI reached {_n(NDVI_LOW)}" if fired
+                   else f"fires below NDVI {_n(NDVI_LOW)}"),
+        advice_en=(f"Satellite vegetation index is low ({_n(v)} in {nd.month})"
+                   + (" and rainfall is low — the crop may be water-stressed."
+                      if low_rain else " — check for crop stress or sparse cover.")
+                   if fired else ""),
+    )
+
+
+def _r_soil_drainage(i: PanchayatInput, p: dict) -> RuleResult:
+    clay = i.aux.soil.clay_g_per_kg if (i.aux and i.aux.soil) else None
+    if clay is None:
+        return RuleResult(
+            rule_id="R7_SOIL_DRAINAGE", name="Soil drainage (waterlogging)", fired=False, evaluable=False,
+            inputs={"clay_g_per_kg": None, "rainfall_mm": i.rainfall_mm},
+            condition=f"rainfall_mm >= {_n(SUBSTANTIAL_RAIN_MM)} AND clay >= {_n(CLAY_HIGH_G_PER_KG)} g/kg",
+            flip_hint="soil texture not available for this cell",
+        )
+    fired = i.rainfall_mm >= SUBSTANTIAL_RAIN_MM and clay >= CLAY_HIGH_G_PER_KG
+    return RuleResult(
+        rule_id="R7_SOIL_DRAINAGE", name="Soil drainage (waterlogging)", fired=fired,
+        severity=("high" if (fired and i.rainfall_mm >= HEAVY_RAIN_MM) else "medium" if fired else "none"),
+        inputs={"clay_g_per_kg": clay, "rainfall_mm": i.rainfall_mm},
+        condition=f"rainfall_mm >= {_n(SUBSTANTIAL_RAIN_MM)} AND clay >= {_n(CLAY_HIGH_G_PER_KG)} g/kg",
+        margin_pct=_margin(clay, CLAY_HIGH_G_PER_KG),
+        flip_hint=("would not fire if clay were below "
+                   f"{_n(CLAY_HIGH_G_PER_KG)} g/kg or rain stayed below {_n(SUBSTANTIAL_RAIN_MM)} mm"
+                   if fired else "fires only on wet days over clay-rich (poorly drained) soil"),
+        advice_en=(f"Clay-rich soil ({_n(clay)} g/kg) with {_n(i.rainfall_mm)} mm rain drains slowly. "
+                   f"Open drainage channels and avoid standing water around {i.crop}."
+                   if fired else ""),
+    )
+
+
+def _r_landcover(i: PanchayatInput, p: dict) -> RuleResult:
+    lu = i.aux.lulc if (i.aux and i.aux.lulc) else None
+    if lu is None:
+        return RuleResult(
+            rule_id="R8_LANDCOVER", name="Land-cover check", fired=False, evaluable=False,
+            inputs={"dominant": None, "cropland_fraction": None},
+            condition="dominant land cover is not cropland OR cropland fraction < 0.2",
+            flip_hint="land-cover data not available for this cell",
+        )
+    fr = lu.fractions or {}
+    crop_frac = fr.get("cropland_fraction")
+    non_crop = (lu.dominant in ("built_up", "water", "bare")) or (crop_frac is not None and crop_frac < 0.2)
+    return RuleResult(
+        rule_id="R8_LANDCOVER", name="Land-cover check", fired=bool(non_crop),
+        severity="low" if non_crop else "none",
+        inputs={"dominant": lu.dominant, "cropland_fraction": crop_frac},
+        condition="dominant land cover is not cropland OR cropland fraction < 0.2",
+        flip_hint=("this cell is largely non-cropland; the advisory is indicative only" if non_crop
+                   else "cell is predominantly cropland"),
+        advice_en=(f"This location is mostly {str(lu.dominant).replace('_', ' ')} — "
+                   f"the crop advisory may not apply here." if non_crop else ""),
+    )
+
+
+_RULES = (_r_heavy_rain, _r_substantial_rain, _r_irrigation, _r_heat, _r_disease, _r_wind,
+          _r_vegetation, _r_soil_drainage, _r_landcover)
 
 
 # --------------------------------------------------------------------------
@@ -351,6 +473,9 @@ def evaluate(i: PanchayatInput) -> AdvisoryTrace:
     elif i.tmax_c is None:
         conf -= 0.1
         reasons.append("only mean temperature available; heat stress may be under-detected")
+    if i.aux is None:
+        conf -= 0.1
+        reasons.append("soil / NDVI / land-cover not available for this cell")
     near = [r.name for r in rules if r.evaluable and r.margin_pct is not None and abs(r.margin_pct) <= 10]
     if near:
         conf -= 0.1

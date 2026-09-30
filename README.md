@@ -125,6 +125,12 @@ Aux layers are **not** U-Net input channels — they exist for Layer-2
 
 ## 4. Results — PILOT ONLY (Western Ghats, 2019–2022; NOT the Deccan run)
 
+> **Deccan run (the shipped product):** see `outputs/metrics/ablation_summary.md`. QA hardening
+> added row **E** ("U-Net + DEM + ERA5-Land, heavy-rain weighted") and selection now tie-breaks
+> on validation heavy-rain F1 instead of correlation. On the 2022 test split E gives
+> MAE 8.21 mm / RMSE 14.57 / corr 0.518 and event F1 0.60 / 0.42 / 0.13 at 10/25/50 mm,
+> versus the previous selected D (MAE 8.17 / RMSE 16.01 / corr 0.446 / F1 0.39 / 0.28 / 0.015).
+
 Reference: **CHIRPS 0.05° — a reference product, not ground truth.**
 122 train / 122 val / 122 test monsoon days; same dates for every row.
 
@@ -327,6 +333,12 @@ readability, and expected schema:
 | `outputs/layer2/panchayat_weather.geojson` | Mapped Panchayat geometries with rainfall attributes |
 | `outputs/layer2/panchayat_weather_map.png` | Generated choropleth map |
 | `outputs/layer2/layer2_qc.json` | Provenance and QC record |
+
+> **Note (QA hardening).** `panchayat_weather.csv` and `panchayat_weather.geojson` are >100 MB and are
+deliberately **not committed** (see `.gitignore`). The backend therefore serves the per-date
+value from the U-Net grid at each Panchayat's *own* polygon point (built by
+`backend/build_panchayat_index.py`); run `scripts/layer2_panchayat_mapping.py` locally if you need
+the area-weighted per-date CSV.
 
 QC summary:
 

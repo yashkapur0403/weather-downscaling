@@ -98,9 +98,13 @@ def register(app: FastAPI, repo_root: str | Path | None = None) -> None:
 
     @app.get("/")
     async def health():
-        st = S.store
+        try:
+            n = len(store().df)
+        except HTTPException:
+            n = None                    # data files missing: report null rather than crash
+        runner()                        # surface a requested-but-failed live-inference init
         return {"message": "Panchayat downscaling API", "repo_root": str(root),
-                "panchayats_loaded": None if st is None else len(st.df),
+                "panchayats_loaded": n,
                 "live_inference": bool(S.runner), "live_inference_error": S.runner_error}
 
     @app.get("/api/panchayats")
@@ -110,10 +114,15 @@ def register(app: FastAPI, repo_root: str | Path | None = None) -> None:
     @app.get("/api/geocode")
     async def geocode(panchayat_name: str, block_name: str = "", district: str = "", state: str = ""):
         st = store()
-        row = st.find(panchayat_name, block_name, district, state)
-        if row is None:
+        h = st.matches(panchayat_name, block_name, district, state)
+        if len(h) == 0:
             raise HTTPException(404, "panchayat not found")
-        lat, lon, prec = st.locate_row(row)
+        if len(h) > 1:
+            raise HTTPException(409, {
+                "error": f"{len(h)} panchayats share the name '{panchayat_name}'; "
+                         "add district / block_name (or state) to disambiguate",
+                "candidates": Store.candidate_dicts(h)})
+        lat, lon, prec = st.locate_row(h.iloc[0])
         if lat is None:
             raise HTTPException(404, "no coordinates for this panchayat. Run build_panchayat_index.py to add them")
         return {"lat": lat, "lon": lon, "location_precision": prec}
@@ -140,7 +149,13 @@ def register(app: FastAPI, repo_root: str | Path | None = None) -> None:
     async def query(req: QueryRequest):
         st = store()
         date = req.date or DEFAULT_DATE
-        row = st.find(req.panchayat_name, req.block_name, req.district, req.state)
+        h = st.matches(req.panchayat_name, req.block_name, req.district, req.state)
+        if len(h) > 1 and req.lat is None and req.lon is None:
+            raise HTTPException(409, {
+                "error": f"{len(h)} panchayats share the name '{req.panchayat_name}'; "
+                         "add district / block_name (or state), or pass lat/lon, to disambiguate",
+                "candidates": Store.candidate_dicts(h)})
+        row = h.iloc[0] if len(h) else None
         lat, lon = req.lat, req.lon
         precision = "given"
         if row is not None:

@@ -10,10 +10,11 @@ Split: years {'train': [2018, 2019, 2020], 'val': [2021], 'test': [2022]}. Event
 | C | U-Net + DEM | 7.04 / 14.16 / 0.318 | 8.36 / 16.50 / 0.419 |
 | Cw | U-Net + DEM (weighted loss) | 11.40 / 18.80 / 0.226 | 12.27 / 20.11 / 0.287 |
 | D | U-Net + DEM + ERA5-Land | 6.93 / 13.79 / 0.346 | 8.17 / 16.01 / 0.446 |
+| E | U-Net + DEM + ERA5-Land (heavy-rain weighted) | 7.44 / 12.82 / 0.460 | 8.21 / 14.57 / 0.518 |
 
-**Selected (val MAE, 0.1-mm tie broken by val corr): D - U-Net + DEM + ERA5-Land.**
+**Selected (val MAE, 0.1-mm tie broken by val corr): E - U-Net + DEM + ERA5-Land (heavy-rain weighted).**
 
-Improvement of the selected model over the bilinear baseline (test): 15.0% lower MAE.
+Improvement of the selected model over the bilinear baseline (test): 14.5% lower MAE.
 
 Note: the MAE-trained rows (B/C/D) under-detect heavy rain (smoothed fields). The weighted-loss row Cw trades ~0.7 mm val MAE for clearly better correlation and heavy-rain F1 - use Cw when heavy-rain detection matters more than mean error.
 
@@ -26,3 +27,4 @@ Note: the MAE-trained rows (B/C/D) under-detect heavy rain (smoothed fields). Th
 | C | 0.332 | 0.231 | 0.104 |
 | Cw | 0.440 | 0.305 | 0.188 |
 | D | 0.393 | 0.281 | 0.015 |
+| E | 0.602 | 0.425 | 0.129 |

@@ -5,7 +5,7 @@
  * Base URL from env; falls back to localhost:8000.
  */
 
-import type { QueryRequest, QueryResponse, Panchayat, Weather, ModelMetrics, AdvisoryResponse, CropType, CropStage, ExplainRequest, ExplainResponse } from '../types';
+import type { QueryRequest, QueryResponse, Panchayat, ModelMetrics, AdvisoryResponse, CropType, CropStage, ExplainRequest, ExplainResponse } from '../types';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -52,15 +52,10 @@ export async function geocodePanchayat(panchayat: Panchayat): Promise<{ lat: num
   return apiFetch<{ lat: number; lon: number }>(`/api/geocode?${params}`);
 }
 
-// ── Weather (temperature, humidity, elevation) ───────────────────────────────
-export async function fetchWeather(
-  lat: number,
-  lon: number,
-  date: string
-): Promise<Weather> {
-  const params = new URLSearchParams({ lat: String(lat), lon: String(lon), date });
-  return apiFetch<Weather>(`/api/weather?${params}`);
-}
+// ── Weather ───────────────────────────────────────────────────────────────────
+// The backend now returns temperature/humidity/elevation as part of POST /auth/,
+// so the separate GET /api/weather helper (and the duplicate Next.js route that
+// mirrored it) was removed to avoid two sources of truth for the same quantity.
 
 // ── Model metrics ─────────────────────────────────────────────────────────────
 export async function fetchMetrics(): Promise<ModelMetrics> {
