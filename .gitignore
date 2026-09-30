@@ -27,3 +27,8 @@ __pycache__/
 # --- OS / editor -------------------------------------------------------------
 .DS_Store
 Thumbs.db
+
+# --- Local QA worktree --------------------------------------------------------
+# A linked git worktree used for QA lives here; without this, `git add -A` in
+# this checkout would try to commit the whole nested working tree.
+.qa-b1/
