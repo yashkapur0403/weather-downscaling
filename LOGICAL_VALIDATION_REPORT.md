@@ -84,7 +84,7 @@ with the before/after values rather than presenting a moving target.
 
 Every claim below names its evidence: an experiment ID (`IDENT`, `POLY`, `THR`, `PERT`, `HTTP-…`), a
 console line, or a code location as `file:line`. The machine-readable dump of every experiment is in
-`.qa-b1/qa_logic_*.json` (§19).
+`qa_logic_*.json` (§19).
 
 ---
 
@@ -1116,14 +1116,14 @@ caller without verification — two small fixes away from being fully provable.*
 
 | File | Covers | Key results |
 |---|---|---|
-| `.qa-b1/qa_logic_core.py` → `qa_logic_core.json` | L1→L2 traces, orientation controls, units, polygon vs nearest-cell, summary staleness, temporal index, spatial sanity, temporal structure, model-output sanity, admin joins | 13/13 exact; 54/54 exact; area-weighted gaps to 3.44 mm; summary max 163.2806 vs served 193.96; 87,735/87,735 coordinates; ≥100 mm recall 0.005 |
-| `.qa-b1/qa_logic_advisory.py` → `qa_logic_advisory.json` | every threshold at T±ε, 11 one-input perturbations, action coherence, faithfulness guard | all boundaries exact; crop/stage/temp/soil/NDVI/LULC all causal; `is_faithful("…48 hours")` false |
-| `.qa-b1/qa_logic_http.py` → `qa_logic_http.json` | identity binding, ambiguity 409, sequence + concurrency isolation, zero-rain reachability, Layer-3 binding, enums/errors | 12/12 identity; 8/8 isolation; 3 Panchayats return exactly 0.0; advisory accepts rainfall 999 and `date=1999-01-01` |
-| `.qa-b1/qa_f1_50.py` → `qa_f1_50.json` | heavy-rain failure diagnosis | E at 50 mm: precision 0.438, recall 0.076 |
-| `.qa-b1/qa_eval_f1.py` → `qa_f1_50_variants.json` | per-checkpoint fixed + val-calibrated event metrics | E 0.129 / F 0.320 / EF 0.284 vs baseline 0.234 |
-| `.qa-b1/qa_blend.py` → `qa_blend.json` | blend/ensemble candidates on val+test | equal-weight E+F dominates the baseline at every metric |
-| `.qa-b1/qa_ensemble_smoke.py` | ensemble loader correctness | max difference `0.0` vs the manual weighted mean; single-checkpoint override exact |
-| `pytest` (`.qa-b1/.venv`) | backend behaviour, mapping, aux, contract, new artefact-consistency suite | **53 passed** |
+| `qa_logic_core.py` → `qa_logic_core.json` | L1→L2 traces, orientation controls, units, polygon vs nearest-cell, summary staleness, temporal index, spatial sanity, temporal structure, model-output sanity, admin joins | 13/13 exact; 54/54 exact; area-weighted gaps to 3.44 mm; summary max 163.2806 vs served 193.96; 87,735/87,735 coordinates; ≥100 mm recall 0.005 |
+| `qa_logic_advisory.py` → `qa_logic_advisory.json` | every threshold at T±ε, 11 one-input perturbations, action coherence, faithfulness guard | all boundaries exact; crop/stage/temp/soil/NDVI/LULC all causal; `is_faithful("…48 hours")` false |
+| `qa_logic_http.py` → `qa_logic_http.json` | identity binding, ambiguity 409, sequence + concurrency isolation, zero-rain reachability, Layer-3 binding, enums/errors | 12/12 identity; 8/8 isolation; 3 Panchayats return exactly 0.0; advisory accepts rainfall 999 and `date=1999-01-01` |
+| `qa_f1_50.py` → `qa_f1_50.json` | heavy-rain failure diagnosis | E at 50 mm: precision 0.438, recall 0.076 |
+| `qa_eval_f1.py` → `qa_f1_50_variants.json` | per-checkpoint fixed + val-calibrated event metrics | E 0.129 / F 0.320 / EF 0.284 vs baseline 0.234 |
+| `qa_blend.py` → `qa_blend.json` | blend/ensemble candidates on val+test | equal-weight E+F dominates the baseline at every metric |
+| `qa_ensemble_smoke.py` | ensemble loader correctness | max difference `0.0` vs the manual weighted mean; single-checkpoint override exact |
+| `pytest` (`backend/.venv`) | backend behaviour, mapping, aux, contract, new artefact-consistency suite | **53 passed at validation time; 69 after the fixes in §20** |
 
 ### 19.2 Artefacts inspected
 
@@ -1137,16 +1137,17 @@ caller without verification — two small fixes away from being fully provable.*
 ### 19.3 Reproduction commands
 
 ```bash
-# from weather-downscaling/
-# Layer 1 / Layer 2 logic (needs the torch+geopandas venv)
-.venv/Scripts/python.exe .qa-b1/qa_logic_core.py
-# advisory engine logic (backend venv)
-cd .qa-b1 && ./.venv/Scripts/python.exe qa_logic_advisory.py
-# HTTP / end-to-end (backend must be running on 127.0.0.1:8000)
-cd .qa-b1 && ./.venv/Scripts/python.exe qa_logic_http.py
+# from the repo root (this branch's root IS the worktree that was validated, so
+# the old `cd .qa-b1` prefix is gone; the QA scripts are committed at the root)
+# Layer 1 / Layer 2 logic - needs torch + geopandas (root .venv, README section 5)
+.venv/Scripts/python.exe qa_logic_core.py
+# advisory engine logic - needs the backend deps (fastapi, pydantic)
+backend/.venv/Scripts/python.exe qa_logic_advisory.py
+# HTTP / end-to-end - backend must be running on 127.0.0.1:8000
+backend/.venv/Scripts/python.exe qa_logic_http.py
 # test suites
-cd .qa-b1 && ./.venv/Scripts/python.exe -m pytest -q
-cd .qa-b1/Frontend && npm run typecheck && npm run build
+cd backend && .venv/Scripts/python.exe -m pytest -q          # 69 passed
+cd Frontend && npm run typecheck && npm run build
 ```
 
 ### 19.4 Build fingerprint at validation time

@@ -1,0 +1,102 @@
+[
+ {
+  "id": "D-11",
+  "cat": "L1-output",
+  "test": "NaN cells == complement of target-valid (sea+invalid land) over the FULL fine grid",
+  "exp": "1556354 = 122*(57000-44243)",
+  "act": "1556354 NaN; per-day finite unique=[44243]",
+  "st": "PASS",
+  "sev": "High",
+  "note": "Plan expected 3007 because it counted only 47250 land cells; the fine grid is 57000, and sea cells are NaN too. Mask IS honoured."
+ },
+ {
+  "id": "D-11b",
+  "cat": "L1-output",
+  "test": "NaN mask constant across all 122 days",
+  "exp": "identical mask every day",
+  "act": "constant=True",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-41",
+  "cat": "aux",
+  "test": "NDVI array key/shape/range/missingness",
+  "exp": "20 monthly composites, range ~ -0.064..0.845, ~8% missing",
+  "act": "keys=['months', 'fine_i', 'fine_j', 'ndvi', 'valid_frac_per_month', 'fine_shape', 'note']; ndvi(20, 47250); min=-0.0640 max=0.8453 nan%=8.045; months=[np.str_('2018-06'), np.str_('2018-07'), np.str_('2018-08'), np.str_('2018-09')]...n=20; valid_frac=(20,)",
+  "st": "PASS",
+  "sev": "Low",
+  "note": "Plan's expected key 'fine_values' was wrong; the array key is 'ndvi' and its layout is (months, cells)=(20,47250)."
+ },
+ {
+  "id": "D-60",
+  "cat": "dataset",
+  "test": "data/processed contains the arrays needed to rebuild/verify Layer-1",
+  "exp": "X_{train,val,test}.npy, Y_*.npy, M_*.npy, meta.json",
+  "act": "present=['meta.json']",
+  "st": "FAIL",
+  "sev": "Medium",
+  "note": "Only meta.json is committed (arrays are gitignored / in data.zip). Full dataset rebuild via verify_dataset.py cannot run from git."
+ },
+ {
+  "id": "D-61",
+  "cat": "dataset",
+  "test": "ROI bbox / region is the Deccan dataset not the Western Ghats pilot",
+  "exp": "deccan, 11.5-25.5N 71.5-81.25E",
+  "act": "deccan {'lat_min': 11.5, 'lat_max': 25.5, 'lon_min': 71.5, 'lon_max': 81.25}",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "D-62",
+  "cat": "dataset",
+  "test": "served npz lat/lon identical to meta fine grid",
+  "exp": "identical",
+  "act": "lat=True lon=True",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-42",
+  "cat": "aux",
+  "test": "soil fine_values shape + missingness",
+  "exp": "(47250,5), ~8.8-9.4% NaN",
+  "act": "(47250, 5), nan%=8.95",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-43",
+  "cat": "aux",
+  "test": "LULC fractions shape + rows sum to <=1",
+  "exp": "(47250,6), fractions valid",
+  "act": "(47250, 6); rowsum min=0.000 max=1.000",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-44",
+  "cat": "aux",
+  "test": "admin map cells/states/districts/subdistricts",
+  "exp": "47250 cells land / 15 states / 213 districts / 1093 subdistricts",
+  "act": "keys=['fine_i', 'fine_j', 'fine_lat', 'fine_lon', 'subdistrict_idx', 'nearest_dist_deg', 'subdistrict_ids', 'district_ids', 'state_ids', 'subdistrict_names', 'district_names', 'state_names']; states=47250 districts=213 subdistricts=1093",
+  "st": "INFO",
+  "sev": "",
+  "note": "Consumed only by data_store._admin_centres(); soil/NDVI/LULC are not wired into any route."
+ },
+ {
+  "id": "D-45",
+  "cat": "L2-map",
+  "test": "block_rainfall rows == blocks x 122 days",
+  "exp": "137006",
+  "act": "137006 rows; unique blocks=1123; dates=122",
+  "st": "PASS",
+  "sev": "",
+  "note": "No route reads this file (N-5)."
+ }
+]

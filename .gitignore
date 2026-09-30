@@ -35,3 +35,13 @@ Thumbs.db
 **/.env
 **/.env.*
 !**/.env.example
+
+# --- Local QA scratch, backups and runtime logs -------------------------------
+# Per-checkout working artefacts, not project data. Without these a stray
+# `git add -A` would commit a nested worktree, ~190 MB of scratch test arrays
+# and pre-fix backups.
+.qa-b1/
+qa_processed/
+_backup_original/
+.pytest_cache/
+*.log

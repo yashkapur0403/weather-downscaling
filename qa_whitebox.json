@@ -1,0 +1,322 @@
+[
+ {
+  "id": "D-01",
+  "cat": "L1-data",
+  "test": "meta region is the ACTIVE Deccan dataset",
+  "exp": "deccan",
+  "act": "deccan",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "D-02",
+  "cat": "L1-data",
+  "test": "meta ROI bbox",
+  "exp": "{11.5,25.5,71.5,81.25}",
+  "act": "{'lat_min': 11.5, 'lat_max': 25.5, 'lon_min': 71.5, 'lon_max': 81.25}",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-03",
+  "cat": "L1-data",
+  "test": "date span",
+  "exp": "610 days 2018-06-01..2022-09-30",
+  "act": "610 days 2018-06-01..2022-09-30",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-04",
+  "cat": "L1-data",
+  "test": "temporal split (no leakage by construction)",
+  "exp": "366/122/122 train2018-20/val2021/test2022",
+  "act": "366/122/122 | years {'train': [2018, 2019, 2020], 'val': [2021], 'test': [2022]}",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-05",
+  "cat": "L1-data",
+  "test": "channel ORDER in the dataset",
+  "exp": "[imd_rain,dem,era5_t2m,era5_t2m_max,era5_dewp]",
+  "act": "['imd_rain', 'dem', 'era5_t2m', 'era5_t2m_max', 'era5_dewp']",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "D-06",
+  "cat": "L1-data",
+  "test": "normalisation constants",
+  "exp": "rain_scale=100.0, elev_scale=1222.6514892578125",
+  "act": "rain_scale=100.0 elev_scale=1222.6514892578125",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-07",
+  "cat": "L1-data",
+  "test": "fine grid geometry",
+  "exp": "285x200, fine_sub=5",
+  "act": "285x200 sub=5",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-08",
+  "cat": "L1-data",
+  "test": "land mask / target-valid counts",
+  "exp": "1890 land, 390 sea, 47250 land cells, 44243 target-valid",
+  "act": "land=1890 sea=390 landcells=- target_valid=44243",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-09",
+  "cat": "L1-output",
+  "test": "npz dates == meta test split dates",
+  "exp": "122 dates identical to meta.split.test.dates",
+  "act": "122 dates, first=2022-06-01, last=2022-09-30, identical=True",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "D-10",
+  "cat": "L1-output",
+  "test": "npz lat/lon == meta fine grid",
+  "exp": "identical arrays",
+  "act": "lat match=True lon match=True",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-11",
+  "cat": "L1-output",
+  "test": "NaN cells == masked (non-target-valid) cells",
+  "exp": "3007 NaN cells (47250-44243)",
+  "act": "1556354 NaN cells",
+  "st": "FAIL",
+  "sev": "High",
+  "note": "proves mask is honoured in the served output"
+ },
+ {
+  "id": "D-12",
+  "cat": "L1-output",
+  "test": "NOT the Western Ghats pilot grid",
+  "exp": "285x200 (pilot was 85x85)",
+  "act": "(122, 285, 200) lat 11.4..25.6",
+  "st": "PASS",
+  "sev": "High",
+  "note": ""
+ },
+ {
+  "id": "D-13",
+  "cat": "L1-output",
+  "test": "rainfall value range / no Inf",
+  "exp": "0.0..163.28, no Inf",
+  "act": "min=0.0000 max=163.2806 inf=0 finite_frac=0.7762",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-14",
+  "cat": "L1-output",
+  "test": "dtype",
+  "exp": "float32",
+  "act": "float32",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-15",
+  "cat": "L1-output",
+  "test": "reported global max matches layer2_qc.json",
+  "exp": "163.28 both",
+  "act": "npz=163.2806 qc=163.2806",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-20",
+  "cat": "L2-map",
+  "test": "panchayat_summary row count",
+  "exp": "87,735",
+  "act": "87735",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-21",
+  "cat": "L2-map",
+  "test": "mapping_method distribution",
+  "exp": "area 52893 / direct 31740 / unmapped 1632 / fallback 1470",
+  "act": "{'area_weighted': 52893, 'direct_grid': 31740, 'unmapped': 1632, 'nearest_fallback': 1470}",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-22",
+  "cat": "L2-map",
+  "test": "unmapped rows carry n_cells == 0",
+  "exp": "all 1632 zero",
+  "act": "n_cells sum=0 max=0",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-23",
+  "cat": "L2-map",
+  "test": "index rows / distinct coordinates",
+  "exp": "86,075 rows; 989 distinct coords",
+  "act": "86075 rows; 989 distinct coords",
+  "st": "PASS",
+  "sev": "High",
+  "note": "coordinate collapse - see CF-01"
+ },
+ {
+  "id": "D-24",
+  "cat": "L2-map",
+  "test": "QC mapped count == total - unmapped",
+  "exp": "86103 == 87735-1632",
+  "act": "86103 == 86103",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-25",
+  "cat": "L2-map",
+  "test": "index covers all mapped panchayats",
+  "exp": "86,075 of 86,103 (28 missing)",
+  "act": "86075 of 86103; missing=28",
+  "st": "INFO",
+  "sev": "",
+  "note": "the 28 missing are the DNH/Daman rows - see CF-04"
+ },
+ {
+  "id": "D-26",
+  "cat": "L2-map",
+  "test": "summary n_days consistent",
+  "exp": "all rows n_days=122",
+  "act": "unique n_days=[np.int64(122)]",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-27",
+  "cat": "L2-map",
+  "test": "negative rainfall?",
+  "exp": "no negative values",
+  "act": "min=0.0027",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-28",
+  "cat": "L2-map",
+  "test": "block_rainfall rows == 1123 blocks x 122 days",
+  "exp": "137006",
+  "act": "137006",
+  "st": "PASS",
+  "sev": "",
+  "note": "exact internal consistency of the block aggregation"
+ },
+ {
+  "id": "D-29",
+  "cat": "L2-map",
+  "test": "panchayat_weather.csv exists (README section 8 claims it)",
+  "exp": "present",
+  "act": "exists=False",
+  "st": "FAIL",
+  "sev": "Medium",
+  "note": "absent -> /auth/ cannot serve per-date Layer-2 values (CF-03)"
+ },
+ {
+  "id": "D-30",
+  "cat": "L2-map",
+  "test": "panchayat_weather.geojson exists (README claims it)",
+  "exp": "present",
+  "act": "exists=False",
+  "st": "FAIL",
+  "sev": "Low",
+  "note": ""
+ },
+ {
+  "id": "D-40",
+  "cat": "aux",
+  "test": "soil fine_values shape",
+  "exp": "(47250, 5)",
+  "act": "(47250, 5) NaN%=8.95",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-41",
+  "cat": "aux",
+  "test": "NDVI 20 monthly composites + range",
+  "exp": "20 layers, values -0.064..0.845",
+  "act": "['months', 'fine_i', 'fine_j', 'ndvi', 'valid_frac_per_month', 'fine_shape', 'note']",
+  "st": "FAIL",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-42",
+  "cat": "aux",
+  "test": "LULC fractions shape",
+  "exp": "(47250, 6)",
+  "act": "(47250, 6)",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-43",
+  "cat": "aux",
+  "test": "admin map: cells/states/districts/subdistricts",
+  "exp": "47250 cells / 15 states / 1123 subdistricts",
+  "act": "47250 cells, 15 states, 213 districts, 1093 subdistricts",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-44",
+  "cat": "aux",
+  "test": "build_summary matches the soil array",
+  "exp": "1890 points / 8.84% missing",
+  "act": "n_points=1890 missing={'sand': 8.84, 'clay': 8.84, 'ocd': 8.84, 'phh2o': 8.84, 'bdod': 9.42}",
+  "st": "PASS",
+  "sev": "",
+  "note": ""
+ },
+ {
+  "id": "D-50",
+  "cat": "model",
+  "test": "checkpoint validation",
+  "exp": "checkpoint loads",
+  "act": "BLOCKED: ModuleNotFoundError: No module named 'train'",
+  "st": "BLOCKED",
+  "sev": "High",
+  "note": "torch not installed in this venv"
+ }
+]

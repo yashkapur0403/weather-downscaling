@@ -1,0 +1,1451 @@
+{
+ "l1_l2_traces": [
+  {
+   "panchayat_id": 217924,
+   "panchayat_name": "YALSANGI",
+   "state": "KARNATAKA",
+   "district": "Kalaburagi",
+   "block": "ALAND",
+   "mapping_method": "direct_grid",
+   "n_cells": 1,
+   "coord_from_index": [
+    17.377467862156866,
+    76.45118412901414
+   ],
+   "cell": [
+    120,
+    101
+   ],
+   "npz_raw": 11.391744613647461,
+   "npz_rounded": 11.39,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 2.7688545970566816,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 15.446496963500977,
+   "controls_differ": true,
+   "served_rainfall_mm": 11.39,
+   "served_cell": [
+    120,
+    101
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 181350,
+   "panchayat_name": "MUNDEWADI",
+   "state": "MAHARASHTRA",
+   "district": "Nanded",
+   "block": "KANDHAR",
+   "mapping_method": "direct_grid",
+   "n_cells": 1,
+   "coord_from_index": [
+    18.84138181003473,
+    77.2447968462293
+   ],
+   "cell": [
+    149,
+    117
+   ],
+   "npz_raw": 26.00969696044922,
+   "npz_rounded": 26.01,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 4.689582430837737,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 19.426023483276367,
+   "controls_differ": true,
+   "served_rainfall_mm": 26.01,
+   "served_cell": [
+    149,
+    117
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 205399,
+   "panchayat_name": "KUDIKILLA",
+   "state": "TELANGANA",
+   "district": "Nagarkurnool",
+   "block": "KOLLAPUR",
+   "mapping_method": "direct_grid",
+   "n_cells": 1,
+   "coord_from_index": [
+    16.158209775480866,
+    78.34397341008318
+   ],
+   "cell": [
+    95,
+    139
+   ],
+   "npz_raw": 7.492895603179932,
+   "npz_rounded": 7.49,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 1.4957047192242423,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 11.56037712097168,
+   "controls_differ": true,
+   "served_rainfall_mm": 7.49,
+   "served_cell": [
+    95,
+    139
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 204120,
+   "panchayat_name": "GANI",
+   "state": "ANDHRA PRADESH",
+   "district": "Nandyal",
+   "block": "GADIVEMULA",
+   "mapping_method": "direct_grid",
+   "n_cells": 1,
+   "coord_from_index": [
+    15.666714255732774,
+    78.3010963035207
+   ],
+   "cell": [
+    85,
+    138
+   ],
+   "npz_raw": 1.853719711303711,
+   "npz_rounded": 1.85,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 0.921233986590256,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 12.145116806030273,
+   "controls_differ": true,
+   "served_rainfall_mm": 1.85,
+   "served_cell": [
+    85,
+    138
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 232823,
+   "panchayat_name": "Varaghur",
+   "state": "TAMIL NADU",
+   "district": "Ranipet",
+   "block": "TIMIRI",
+   "mapping_method": "direct_grid",
+   "n_cells": 1,
+   "coord_from_index": [
+    12.805728493471271,
+    79.215024830421
+   ],
+   "cell": [
+    28,
+    156
+   ],
+   "npz_raw": 0.17942409217357635,
+   "npz_rounded": 0.18,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 0.8067142150257943,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 56.63513946533203,
+   "controls_differ": true,
+   "served_rainfall_mm": 0.18,
+   "served_cell": [
+    28,
+    156
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 218336,
+   "panchayat_name": "BYADARAHALLI",
+   "state": "KARNATAKA",
+   "district": "Hassan",
+   "block": "CHANNARAYAPATNA",
+   "mapping_method": "area_weighted",
+   "n_cells": 5,
+   "coord_from_index": [
+    13.006015645883156,
+    76.35448421081678
+   ],
+   "cell": [
+    32,
+    99
+   ],
+   "npz_raw": 2.7646756172180176,
+   "npz_rounded": 2.76,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 2.1099527219546794,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": NaN,
+   "controls_differ": false,
+   "served_rainfall_mm": 2.76,
+   "served_cell": [
+    32,
+    99
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 181217,
+   "panchayat_name": "WALKI (BK)",
+   "state": "MAHARASHTRA",
+   "district": "Nanded",
+   "block": "HADGAON",
+   "mapping_method": "area_weighted",
+   "n_cells": 4,
+   "coord_from_index": [
+    19.37947558867307,
+    77.68455293460512
+   ],
+   "cell": [
+    160,
+    126
+   ],
+   "npz_raw": 14.056804656982422,
+   "npz_rounded": 14.06,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 5.711504207702692,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 25.315837860107422,
+   "controls_differ": true,
+   "served_rainfall_mm": 14.06,
+   "served_cell": [
+    160,
+    126
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 207397,
+   "panchayat_name": "DILAVARPUR",
+   "state": "TELANGANA",
+   "district": "Nalgonda",
+   "block": "DAMERACHERLA",
+   "mapping_method": "area_weighted",
+   "n_cells": 4,
+   "coord_from_index": [
+    16.78037871896813,
+    79.57806820278228
+   ],
+   "cell": [
+    108,
+    164
+   ],
+   "npz_raw": 24.10440444946289,
+   "npz_rounded": 24.1,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 2.546405037560246,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 18.75261878967285,
+   "controls_differ": true,
+   "served_rainfall_mm": 24.1,
+   "served_cell": [
+    108,
+    164
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 203962,
+   "panchayat_name": "ENAKANDLA",
+   "state": "ANDHRA PRADESH",
+   "district": "Nandyal",
+   "block": "BANAGANAPALLE",
+   "mapping_method": "area_weighted",
+   "n_cells": 3,
+   "coord_from_index": [
+    15.36167333289252,
+    78.2088487532462
+   ],
+   "cell": [
+    79,
+    136
+   ],
+   "npz_raw": 1.2352180480957031,
+   "npz_rounded": 1.24,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 1.024478904158269,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 12.503206253051758,
+   "controls_differ": true,
+   "served_rainfall_mm": 1.24,
+   "served_cell": [
+    79,
+    136
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 227821,
+   "panchayat_name": "Arathi Agraharam",
+   "state": "TAMIL NADU",
+   "district": "Salem",
+   "block": "TALAVASAL",
+   "mapping_method": "area_weighted",
+   "n_cells": 1,
+   "coord_from_index": [
+    11.557187373779245,
+    78.76086671427996
+   ],
+   "cell": [
+    3,
+    147
+   ],
+   "npz_raw": 0.07158013433218002,
+   "npz_rounded": 0.07,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 0.7032463778894333,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": NaN,
+   "controls_differ": false,
+   "served_rainfall_mm": 0.07,
+   "served_cell": [
+    3,
+    147
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 186680,
+   "panchayat_name": "NAVEDAR NAVGAON",
+   "state": "MAHARASHTRA",
+   "district": "Raigad",
+   "block": "ALIBAG",
+   "mapping_method": "nearest_fallback",
+   "n_cells": 1,
+   "coord_from_index": [
+    18.712000178905868,
+    72.86465456413903
+   ],
+   "cell": [
+    146,
+    29
+   ],
+   "npz_raw": NaN,
+   "npz_rounded": NaN,
+   "npz_cell_is_nan": true,
+   "summary_rainfall_mean_mm": 12.385130917993145,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 1.1029680967330933,
+   "controls_differ": false,
+   "served_rainfall_mm": null,
+   "served_error": "DataUnavailable: model output is not finite at this cell (sea / excluded cell)",
+   "match": null
+  },
+  {
+   "panchayat_id": 296571,
+   "panchayat_name": "Dasarivaripalem",
+   "state": "ANDHRA PRADESH",
+   "district": "Prakasam",
+   "block": "NAGULUPPALA PADU",
+   "mapping_method": "nearest_fallback",
+   "n_cells": 1,
+   "coord_from_index": [
+    15.58654110152187,
+    80.19824431097224
+   ],
+   "cell": [
+    84,
+    176
+   ],
+   "npz_raw": NaN,
+   "npz_rounded": NaN,
+   "npz_cell_is_nan": true,
+   "summary_rainfall_mean_mm": 0.0049039353616535,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 23.27387237548828,
+   "controls_differ": false,
+   "served_rainfall_mm": null,
+   "served_error": "DataUnavailable: model output is not finite at this cell (sea / excluded cell)",
+   "match": null
+  },
+  {
+   "panchayat_id": 229428,
+   "panchayat_name": "Perittivakkam",
+   "state": "TAMIL NADU",
+   "district": "Thiruvallur",
+   "block": "POONDI",
+   "mapping_method": "nearest_fallback",
+   "n_cells": 1,
+   "coord_from_index": [
+    13.310788745019982,
+    79.91859800912373
+   ],
+   "cell": [
+    38,
+    170
+   ],
+   "npz_raw": NaN,
+   "npz_rounded": NaN,
+   "npz_cell_is_nan": true,
+   "summary_rainfall_mean_mm": 0.0049039353616535,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 55.79214096069336,
+   "controls_differ": false,
+   "served_rainfall_mm": null,
+   "served_error": "DataUnavailable: model output is not finite at this cell (sea / excluded cell)",
+   "match": null
+  },
+  {
+   "panchayat_id": 202507,
+   "panchayat_name": "CHINARKUR",
+   "state": "ANDHRA PRADESH",
+   "district": "Alluri Sitharama Raju",
+   "block": "KUNAVARAM",
+   "mapping_method": "direct_grid",
+   "n_cells": 1,
+   "coord_from_index": [
+    17.61062099178996,
+    81.24944249519882
+   ],
+   "cell": [
+    124,
+    197
+   ],
+   "npz_raw": 42.80887985229492,
+   "npz_rounded": 42.81,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 4.127481394798541,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 23.31411361694336,
+   "controls_differ": true,
+   "served_rainfall_mm": 42.81,
+   "served_cell": [
+    124,
+    197
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 202270,
+   "panchayat_name": "EDUGURALLAPALLI",
+   "state": "ANDHRA PRADESH",
+   "district": "Alluri Sitharama Raju",
+   "block": "CHINTOOR",
+   "mapping_method": "area_weighted",
+   "n_cells": 11,
+   "coord_from_index": [
+    17.795421229780843,
+    81.15782996764344
+   ],
+   "cell": [
+    128,
+    195
+   ],
+   "npz_raw": 44.39826583862305,
+   "npz_rounded": 44.4,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 4.891472063171059,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 22.323843002319336,
+   "controls_differ": true,
+   "served_rainfall_mm": 44.4,
+   "served_cell": [
+    128,
+    195
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  },
+  {
+   "panchayat_id": 276458,
+   "panchayat_name": "DHODARBEDA",
+   "state": "CHHATTISGARH",
+   "district": "Narayanpur",
+   "block": "ORCHHA(ABHUJMAD)",
+   "mapping_method": "direct_grid",
+   "n_cells": 91,
+   "coord_from_index": [
+    19.585524087858158,
+    81.01065555951581
+   ],
+   "cell": [
+    164,
+    192
+   ],
+   "npz_raw": 25.337329864501953,
+   "npz_rounded": 25.34,
+   "npz_cell_is_nan": false,
+   "summary_rainfall_mean_mm": 5.034724409969703,
+   "control_latlon_swapped": 14.446737289428711,
+   "control_transposed": 27.052478790283203,
+   "controls_differ": true,
+   "served_rainfall_mm": 25.34,
+   "served_cell": [
+    164,
+    192
+   ],
+   "served_source": "U-Net prediction grid (prediction_test.npz)",
+   "served_error": null,
+   "match": true
+  }
+ ],
+ "units": {
+  "day": "2022-07-10",
+  "npz_day_max_mm": 115.6944351196289,
+  "chirps_ref_day_max_mm": 257.24542236328125,
+  "imd_bilinear_day_max_mm": 249.99436950683594,
+  "npz_day_mean_over_valid_mm": 20.674034118652344,
+  "chirps_day_mean_over_valid_mm": 22.684215545654297,
+  "imd_day_mean_mm": 20.894458770751953,
+  "npz_day_mean_bias_vs_chirps_mm": -2.010181427001953,
+  "npz_min_mm": 0.0,
+  "npz_has_negative": false,
+  "npz_has_inf": false,
+  "rain_scale_mm": 100.0,
+  "npz_over_imd_ratio_at_max": 0.4627881646156311,
+  "split_npz_max_mm": 193.955810546875,
+  "split_chirps_max_mm": 415.95294189453125,
+  "split_npz_mean_mm": 9.413368225097656,
+  "split_chirps_mean_mm": 9.401497840881348,
+  "looks_double_scaled": false
+ },
+ "polygon_vs_nearest": [
+  {
+   "panchayat_id": 232823,
+   "n_cells_touched": 2,
+   "n_cells_summary": 1,
+   "mapping_method": "direct_grid",
+   "nearest_cell_at_index_point": 0.17942409217357635,
+   "grid_cell_mean_unweighted": 0.13053080439567566,
+   "area_weighted_mean": 0.1511841556837294,
+   "served": 0.18,
+   "served_error": null,
+   "summary_season_mean_mm": 0.8067142150257943,
+   "nearest_minus_areaweighted": 0.028239936489846962
+  },
+  {
+   "panchayat_id": 227821,
+   "n_cells_touched": 1,
+   "n_cells_summary": 1,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 0.07158013433218002,
+   "grid_cell_mean_unweighted": 0.07158013433218002,
+   "area_weighted_mean": 0.07158013433218002,
+   "served": 0.07,
+   "served_error": null,
+   "summary_season_mean_mm": 0.7032463778894333,
+   "nearest_minus_areaweighted": 0.0
+  },
+  {
+   "panchayat_id": 218336,
+   "n_cells_touched": 4,
+   "n_cells_summary": 5,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 2.7646756172180176,
+   "grid_cell_mean_unweighted": 4.185439467430115,
+   "area_weighted_mean": 3.743707413234973,
+   "served": 2.76,
+   "served_error": null,
+   "summary_season_mean_mm": 2.1099527219546794,
+   "nearest_minus_areaweighted": -0.9790317960169554
+  },
+  {
+   "panchayat_id": 218336,
+   "n_cells_touched": 1,
+   "n_cells_summary": 5,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 2.7646756172180176,
+   "grid_cell_mean_unweighted": 4.137903213500977,
+   "area_weighted_mean": 4.137903213500977,
+   "served": 2.76,
+   "served_error": null,
+   "summary_season_mean_mm": 2.1099527219546794,
+   "nearest_minus_areaweighted": -1.373227596282959
+  },
+  {
+   "panchayat_id": 204120,
+   "n_cells_touched": 6,
+   "n_cells_summary": 1,
+   "mapping_method": "direct_grid",
+   "nearest_cell_at_index_point": 1.853719711303711,
+   "grid_cell_mean_unweighted": 1.5672572255134583,
+   "area_weighted_mean": 1.7194733408140357,
+   "served": 1.85,
+   "served_error": null,
+   "summary_season_mean_mm": 0.921233986590256,
+   "nearest_minus_areaweighted": 0.13424637048967525
+  },
+  {
+   "panchayat_id": 205399,
+   "n_cells_touched": 1,
+   "n_cells_summary": 1,
+   "mapping_method": "direct_grid",
+   "nearest_cell_at_index_point": 7.492895603179932,
+   "grid_cell_mean_unweighted": 7.492895603179932,
+   "area_weighted_mean": 7.492895603179932,
+   "served": 7.49,
+   "served_error": null,
+   "summary_season_mean_mm": 1.4957047192242423,
+   "nearest_minus_areaweighted": 0.0
+  },
+  {
+   "panchayat_id": 203962,
+   "n_cells_touched": 3,
+   "n_cells_summary": 3,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 1.2352180480957031,
+   "grid_cell_mean_unweighted": 1.2024968266487122,
+   "area_weighted_mean": 1.2343853903232038,
+   "served": 1.24,
+   "served_error": null,
+   "summary_season_mean_mm": 1.024478904158269,
+   "nearest_minus_areaweighted": 0.0008326577724993012
+  },
+  {
+   "panchayat_id": 229428,
+   "n_cells_touched": 0,
+   "n_cells_summary": 1,
+   "mapping_method": "nearest_fallback",
+   "nearest_cell_at_index_point": NaN,
+   "grid_cell_mean_unweighted": NaN,
+   "area_weighted_mean": NaN,
+   "served": null,
+   "served_error": "DataUnavailable",
+   "summary_season_mean_mm": 0.0049039353616535,
+   "nearest_minus_areaweighted": null
+  },
+  {
+   "panchayat_id": 296571,
+   "n_cells_touched": 0,
+   "n_cells_summary": 1,
+   "mapping_method": "nearest_fallback",
+   "nearest_cell_at_index_point": NaN,
+   "grid_cell_mean_unweighted": NaN,
+   "area_weighted_mean": NaN,
+   "served": null,
+   "served_error": "DataUnavailable",
+   "summary_season_mean_mm": 0.0049039353616535,
+   "nearest_minus_areaweighted": null
+  },
+  {
+   "panchayat_id": 207397,
+   "n_cells_touched": 4,
+   "n_cells_summary": 4,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 24.10440444946289,
+   "grid_cell_mean_unweighted": 22.399882793426514,
+   "area_weighted_mean": 23.14418942485105,
+   "served": 24.1,
+   "served_error": null,
+   "summary_season_mean_mm": 2.546405037560246,
+   "nearest_minus_areaweighted": 0.9602150246118413
+  },
+  {
+   "panchayat_id": 202270,
+   "n_cells_touched": 7,
+   "n_cells_summary": 11,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 44.39826583862305,
+   "grid_cell_mean_unweighted": 45.57009070260184,
+   "area_weighted_mean": 45.13278361493429,
+   "served": 44.4,
+   "served_error": null,
+   "summary_season_mean_mm": 4.891472063171059,
+   "nearest_minus_areaweighted": -0.7345177763112432
+  },
+  {
+   "panchayat_id": 202270,
+   "n_cells_touched": 1,
+   "n_cells_summary": 11,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 44.39826583862305,
+   "grid_cell_mean_unweighted": 44.66945266723633,
+   "area_weighted_mean": 44.66945266723633,
+   "served": 44.4,
+   "served_error": null,
+   "summary_season_mean_mm": 4.891472063171059,
+   "nearest_minus_areaweighted": -0.27118682861328125
+  },
+  {
+   "panchayat_id": 202270,
+   "n_cells_touched": 2,
+   "n_cells_summary": 11,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 44.39826583862305,
+   "grid_cell_mean_unweighted": 45.590267181396484,
+   "area_weighted_mean": 45.56298648672482,
+   "served": 44.4,
+   "served_error": null,
+   "summary_season_mean_mm": 4.891472063171059,
+   "nearest_minus_areaweighted": -1.1647206481017705
+  },
+  {
+   "panchayat_id": 202270,
+   "n_cells_touched": 1,
+   "n_cells_summary": 11,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 44.39826583862305,
+   "grid_cell_mean_unweighted": 45.65137481689453,
+   "area_weighted_mean": 45.65137481689453,
+   "served": 44.4,
+   "served_error": null,
+   "summary_season_mean_mm": 4.891472063171059,
+   "nearest_minus_areaweighted": -1.2531089782714844
+  },
+  {
+   "panchayat_id": 202270,
+   "n_cells_touched": 1,
+   "n_cells_summary": 11,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 44.39826583862305,
+   "grid_cell_mean_unweighted": 45.785308837890625,
+   "area_weighted_mean": 45.785308837890625,
+   "served": 44.4,
+   "served_error": null,
+   "summary_season_mean_mm": 4.891472063171059,
+   "nearest_minus_areaweighted": -1.3870429992675781
+  },
+  {
+   "panchayat_id": 202270,
+   "n_cells_touched": 2,
+   "n_cells_summary": 11,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 44.39826583862305,
+   "grid_cell_mean_unweighted": 45.69976043701172,
+   "area_weighted_mean": 45.66735139374538,
+   "served": 44.4,
+   "served_error": null,
+   "summary_season_mean_mm": 4.891472063171059,
+   "nearest_minus_areaweighted": -1.2690855551223308
+  },
+  {
+   "panchayat_id": 202507,
+   "n_cells_touched": 1,
+   "n_cells_summary": 1,
+   "mapping_method": "direct_grid",
+   "nearest_cell_at_index_point": 42.80887985229492,
+   "grid_cell_mean_unweighted": 42.80887985229492,
+   "area_weighted_mean": 42.80887985229492,
+   "served": 42.81,
+   "served_error": null,
+   "summary_season_mean_mm": 4.127481394798541,
+   "nearest_minus_areaweighted": 0.0
+  },
+  {
+   "panchayat_id": 276458,
+   "n_cells_touched": 128,
+   "n_cells_summary": 91,
+   "mapping_method": "direct_grid",
+   "nearest_cell_at_index_point": 25.337329864501953,
+   "grid_cell_mean_unweighted": 29.342568695545197,
+   "area_weighted_mean": 28.77425362796882,
+   "served": 25.34,
+   "served_error": null,
+   "summary_season_mean_mm": 5.034724409969703,
+   "nearest_minus_areaweighted": -3.4369237634668686
+  },
+  {
+   "panchayat_id": 181217,
+   "n_cells_touched": 4,
+   "n_cells_summary": 4,
+   "mapping_method": "area_weighted",
+   "nearest_cell_at_index_point": 14.056804656982422,
+   "grid_cell_mean_unweighted": 14.615502834320068,
+   "area_weighted_mean": 14.314804633740613,
+   "served": 14.06,
+   "served_error": null,
+   "summary_season_mean_mm": 5.711504207702692,
+   "nearest_minus_areaweighted": -0.25799997675819064
+  },
+  {
+   "panchayat_id": 181350,
+   "n_cells_touched": 1,
+   "n_cells_summary": 1,
+   "mapping_method": "direct_grid",
+   "nearest_cell_at_index_point": 26.00969696044922,
+   "grid_cell_mean_unweighted": 26.00969696044922,
+   "area_weighted_mean": 26.00969696044922,
+   "served": 26.01,
+   "served_error": null,
+   "summary_season_mean_mm": 4.689582430837737,
+   "nearest_minus_areaweighted": 0.0
+  },
+  {
+   "panchayat_id": 217924,
+   "n_cells_touched": 6,
+   "n_cells_summary": 1,
+   "mapping_method": "direct_grid",
+   "nearest_cell_at_index_point": 11.391744613647461,
+   "grid_cell_mean_unweighted": 11.389862537384033,
+   "area_weighted_mean": 11.526674029232538,
+   "served": 11.39,
+   "served_error": null,
+   "summary_season_mean_mm": 2.7688545970566816,
+   "nearest_minus_areaweighted": -0.1349294155850771
+  },
+  {
+   "panchayat_id": 186680,
+   "n_cells_touched": 0,
+   "n_cells_summary": 1,
+   "mapping_method": "nearest_fallback",
+   "nearest_cell_at_index_point": NaN,
+   "grid_cell_mean_unweighted": NaN,
+   "area_weighted_mean": NaN,
+   "served": null,
+   "served_error": "DataUnavailable",
+   "summary_season_mean_mm": 12.385130917993145,
+   "nearest_minus_areaweighted": null
+  }
+ ],
+ "identity": {
+  "summary_rows": 87735,
+  "index_rows": 87735,
+  "distinct_coords": 87735,
+  "max_panchayats_per_coord": 1,
+  "median_panchayats_per_coord": 1.0,
+  "n_coords_shared_by_more_than_one": 0,
+  "distinct_panchayat_names": 68662,
+  "duplicated_names": 8645,
+  "max_rows_sharing_a_name": 61,
+  "mapping_method_counts": {
+   "area_weighted": 52893,
+   "direct_grid": 31740,
+   "unmapped": 1632,
+   "nearest_fallback": 1470
+  },
+  "unmapped_rows": 1632
+ },
+ "layer2_summary_staleness": [
+  {
+   "panchayat_id": 276458,
+   "summary_n_cells": 91,
+   "my_cells": 128,
+   "summary_rainfall_mean_mm": 5.034724409969703,
+   "recomputed_area_weighted_season_mean_mm": 18.16637421564853,
+   "abs_diff_mm": 13.131649805678828,
+   "summary_max_mm": 36.27272021115482,
+   "recomputed_max_mm": 61.80428444164442
+  },
+  {
+   "panchayat_id": 202270,
+   "summary_n_cells": 11,
+   "my_cells": 11,
+   "summary_rainfall_mean_mm": 4.891472063171059,
+   "recomputed_area_weighted_season_mean_mm": 14.939423421182793,
+   "abs_diff_mm": 10.047951358011733,
+   "summary_max_mm": 32.91977578199195,
+   "recomputed_max_mm": 67.18277796551178
+  },
+  {
+   "panchayat_id": 203962,
+   "summary_n_cells": 3,
+   "my_cells": 3,
+   "summary_rainfall_mean_mm": 1.024478904158269,
+   "recomputed_area_weighted_season_mean_mm": 2.4698229526409214,
+   "abs_diff_mm": 1.4453440484826525,
+   "summary_max_mm": 14.330308158658804,
+   "recomputed_max_mm": 27.41915009800121
+  }
+ ],
+ "layer2_summary_vs_field": {
+  "npz_day_global_mean_mm": 20.674034118652344,
+  "chirps_day_global_mean_mm": 22.684215545654297,
+  "sample_panchayat_own_cell_model_mean_mm": 10.39327926908217,
+  "sample_panchayat_own_cell_chirps_mean_mm": 2.1847915636752733,
+  "summary_rainfall_mean_mm_median": 3.936508840289669,
+  "summary_rainfall_mean_mm_mean": 4.008167571650624,
+  "summary_rainfall_mean_mm_p95": 7.716481261633262,
+  "summary_rainfall_max_mm_max": 163.28057861328125,
+  "npz_split_mean_mm": 9.413368225097656,
+  "npz_split_max_mm": 193.955810546875,
+  "chirps_split_mean_mm": 9.401497840881348,
+  "chirps_split_max_mm": 415.95294189453125,
+  "summary_to_npz_split_mean_ratio": 0.4257952600817379
+ },
+ "temporal": {
+  "date_index_ok": 54,
+  "date_index_bad": 0,
+  "traces": [
+   {
+    "panchayat_id": 202278,
+    "date": "2022-06-01",
+    "npz_index": 0,
+    "raw": 0.07158013433218002,
+    "served": 0.07,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-06-02",
+    "npz_index": 1,
+    "raw": 0.07158013433218002,
+    "served": 0.07,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-08-01",
+    "npz_index": 61,
+    "raw": 11.645435333251953,
+    "served": 11.65,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-09-29",
+    "npz_index": 120,
+    "raw": 20.76056671142578,
+    "served": 20.76,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-09-30",
+    "npz_index": 121,
+    "raw": 27.79216766357422,
+    "served": 27.79,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-07-01",
+    "npz_index": 30,
+    "raw": 12.370210647583008,
+    "served": 12.37,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-07-02",
+    "npz_index": 31,
+    "raw": 7.081050395965576,
+    "served": 7.08,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-07-31",
+    "npz_index": 60,
+    "raw": 9.34427547454834,
+    "served": 9.34,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-08-01",
+    "npz_index": 61,
+    "raw": 11.645435333251953,
+    "served": 11.65,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-08-31",
+    "npz_index": 91,
+    "raw": 8.5176362991333,
+    "served": 8.52,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-09-01",
+    "npz_index": 92,
+    "raw": 5.789046287536621,
+    "served": 5.79,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-09-09",
+    "npz_index": 100,
+    "raw": 34.33710479736328,
+    "served": 34.34,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-09-19",
+    "npz_index": 110,
+    "raw": 43.717872619628906,
+    "served": 43.72,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-09-24",
+    "npz_index": 115,
+    "raw": 3.560042381286621,
+    "served": 3.56,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-06-30",
+    "npz_index": 29,
+    "raw": 11.38714599609375,
+    "served": 11.39,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-07-01",
+    "npz_index": 30,
+    "raw": 12.370210647583008,
+    "served": 12.37,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-08-31",
+    "npz_index": 91,
+    "raw": 8.5176362991333,
+    "served": 8.52,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202278,
+    "date": "2022-09-01",
+    "npz_index": 92,
+    "raw": 5.789046287536621,
+    "served": 5.79,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-06-01",
+    "npz_index": 0,
+    "raw": 0.07158013433218002,
+    "served": 0.07,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-06-02",
+    "npz_index": 1,
+    "raw": 0.07158013433218002,
+    "served": 0.07,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-08-01",
+    "npz_index": 61,
+    "raw": 13.229291915893555,
+    "served": 13.23,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-09-29",
+    "npz_index": 120,
+    "raw": 21.24184226989746,
+    "served": 21.24,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-09-30",
+    "npz_index": 121,
+    "raw": 28.426921844482422,
+    "served": 28.43,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-07-01",
+    "npz_index": 30,
+    "raw": 11.749066352844238,
+    "served": 11.75,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-07-02",
+    "npz_index": 31,
+    "raw": 8.282573699951172,
+    "served": 8.28,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-07-31",
+    "npz_index": 60,
+    "raw": 9.11874008178711,
+    "served": 9.12,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-08-01",
+    "npz_index": 61,
+    "raw": 13.229291915893555,
+    "served": 13.23,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-08-31",
+    "npz_index": 91,
+    "raw": 9.182780265808105,
+    "served": 9.18,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-09-01",
+    "npz_index": 92,
+    "raw": 5.751798629760742,
+    "served": 5.75,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-09-09",
+    "npz_index": 100,
+    "raw": 37.23883819580078,
+    "served": 37.24,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-09-19",
+    "npz_index": 110,
+    "raw": 42.63569641113281,
+    "served": 42.64,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-09-24",
+    "npz_index": 115,
+    "raw": 3.983940601348877,
+    "served": 3.98,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-06-30",
+    "npz_index": 29,
+    "raw": 10.321495056152344,
+    "served": 10.32,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-07-01",
+    "npz_index": 30,
+    "raw": 11.749066352844238,
+    "served": 11.75,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-08-31",
+    "npz_index": 91,
+    "raw": 9.182780265808105,
+    "served": 9.18,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202507,
+    "date": "2022-09-01",
+    "npz_index": 92,
+    "raw": 5.751798629760742,
+    "served": 5.75,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-06-01",
+    "npz_index": 0,
+    "raw": 0.07158013433218002,
+    "served": 0.07,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-06-02",
+    "npz_index": 1,
+    "raw": 0.07158013433218002,
+    "served": 0.07,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-08-01",
+    "npz_index": 61,
+    "raw": 12.59349536895752,
+    "served": 12.59,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-09-29",
+    "npz_index": 120,
+    "raw": 20.939102172851562,
+    "served": 20.94,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-09-30",
+    "npz_index": 121,
+    "raw": 28.596637725830078,
+    "served": 28.6,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-07-01",
+    "npz_index": 30,
+    "raw": 10.642817497253418,
+    "served": 10.64,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-07-02",
+    "npz_index": 31,
+    "raw": 6.720279216766357,
+    "served": 6.72,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-07-31",
+    "npz_index": 60,
+    "raw": 8.76535415649414,
+    "served": 8.77,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-08-01",
+    "npz_index": 61,
+    "raw": 12.59349536895752,
+    "served": 12.59,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-08-31",
+    "npz_index": 91,
+    "raw": 9.126700401306152,
+    "served": 9.13,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-09-01",
+    "npz_index": 92,
+    "raw": 5.339710235595703,
+    "served": 5.34,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-09-09",
+    "npz_index": 100,
+    "raw": 37.658226013183594,
+    "served": 37.66,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-09-19",
+    "npz_index": 110,
+    "raw": 43.08148956298828,
+    "served": 43.08,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-09-24",
+    "npz_index": 115,
+    "raw": 2.736128568649292,
+    "served": 2.74,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-06-30",
+    "npz_index": 29,
+    "raw": 9.315682411193848,
+    "served": 9.32,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-07-01",
+    "npz_index": 30,
+    "raw": 10.642817497253418,
+    "served": 10.64,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-08-31",
+    "npz_index": 91,
+    "raw": 9.126700401306152,
+    "served": 9.13,
+    "ok": true
+   },
+   {
+    "panchayat_id": 202508,
+    "date": "2022-09-01",
+    "npz_index": 92,
+    "raw": 5.339710235595703,
+    "served": 5.34,
+    "ok": true
+   }
+  ],
+  "out_of_range": [
+   {
+    "date": "2021-07-10",
+    "result": null
+   },
+   {
+    "date": "2022-10-01",
+    "result": null
+   },
+   {
+    "date": "2022-05-31",
+    "result": null
+   },
+   {
+    "date": "2022-13-01",
+    "result": null
+   },
+   {
+    "date": "not-a-date",
+    "result": null
+   },
+   {
+    "date": "",
+    "result": null
+   }
+  ]
+ },
+ "spatial": {
+  "panchayats_on_identical_lattice_cell": 24752,
+  "max_panchayats_on_one_cell": 12,
+  "distinct_lattice_cells": 36922,
+  "cells_with_nan_field": 1065,
+  "mean_abs_diff_between_neighbouring_cells_mm": 1.104107281440622,
+  "n_neighbour_pairs": 62679,
+  "p95_abs_diff_mm": 3.832387161254882,
+  "max_abs_diff_mm": 24.617015838623047
+ },
+ "temporal_sanity": {
+  "monthly_means": {
+   "06": {
+    "n_days": 30,
+    "model_mean_mm": 3.4578192234039307,
+    "chirps_mean_mm": 5.149643898010254,
+    "imd_bilinear_mean_mm": 3.4283180236816406
+   },
+   "07": {
+    "n_days": 31,
+    "model_mean_mm": 14.876855850219727,
+    "chirps_mean_mm": 13.902302742004395,
+    "imd_bilinear_mean_mm": 11.401667594909668
+   },
+   "08": {
+    "n_days": 31,
+    "model_mean_mm": 10.795001029968262,
+    "chirps_mean_mm": 11.111766815185547,
+    "imd_bilinear_mean_mm": 8.507161140441895
+   },
+   "09": {
+    "n_days": 30,
+    "model_mean_mm": 8.295625686645508,
+    "chirps_mean_mm": 7.235243797302246,
+    "imd_bilinear_mean_mm": 5.53217077255249
+   }
+  },
+  "corr_model_vs_chirps_daily_domain_mean": 0.8361712699814722,
+  "corr_model_vs_imd_daily_domain_mean": 0.8979290352600638,
+  "corr_chirps_vs_imd_daily_domain_mean": 0.7701509209453418,
+  "n_identical_consecutive_domain_means": 0,
+  "n_identical_consecutive_full_days": 0,
+  "model_daily_domain_mean_range": [
+   0.2944754660129547,
+   25.139240264892578
+  ],
+  "chirps_daily_domain_mean_range": [
+   0.0854337215423584,
+   34.654056549072266
+  ],
+  "split": "years {'train': [2018, 2019, 2020], 'val': [2021], 'test': [2022]}"
+ },
+ "model_sanity": {
+  "event_table": [
+   {
+    "thr_mm": 10,
+    "n_obs_events": 1618246,
+    "n_pred_events": 1711377,
+    "precision": 0.5843732853719549,
+    "recall": 0.6180043083684433,
+    "f1": 0.6007184597175116,
+    "n_missed": 618163,
+    "n_false_alarms": 711294
+   },
+   {
+    "thr_mm": 25,
+    "n_obs_events": 624843,
+    "n_pred_events": 615381,
+    "precision": 0.4454264918806398,
+    "recall": 0.43868139676686785,
+    "f1": 0.44202821425806954,
+    "n_missed": 350736,
+    "n_false_alarms": 341274
+   },
+   {
+    "thr_mm": 50,
+    "n_obs_events": 167065,
+    "n_pred_events": 124908,
+    "precision": 0.33162007237326674,
+    "recall": 0.24793942477478825,
+    "f1": 0.28373856486729937,
+    "n_missed": 125643,
+    "n_false_alarms": 83486
+   },
+   {
+    "thr_mm": 100,
+    "n_obs_events": 24982,
+    "n_pred_events": 523,
+    "precision": 0.2390057361376673,
+    "recall": 0.005003602593867585,
+    "f1": 0.009801999607920015,
+    "n_missed": 24857,
+    "n_false_alarms": 398
+   }
+  ],
+  "obs_ge50_mean_pred_mm": 35.61579513549805,
+  "obs_ge50_median_pred_mm": 35.280723571777344,
+  "obs_ge50_mean_obs_mm": 75.95599365234375,
+  "obs_ge50_frac_predicted_ge50": 0.24793942477478825,
+  "frac_of_reference_max_achieved": 0.46629267930984497,
+  "p99_obs": 76.6596908569336,
+  "p99_model": 58.39961242675781
+ },
+ "admin_hierarchy": {
+  "lgd_rows": 99204,
+  "lgd_duplicated_gpcodes": 11469,
+  "joined_rows": 99204,
+  "summary_rows": 87735,
+  "join_row_inflation": 11469,
+  "name_mismatch": 0,
+  "district_mismatch": 76,
+  "state_mismatch": 3
+ }
+}

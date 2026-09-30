@@ -7,7 +7,7 @@ cd backend
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env                                   # optional: add GROQ_API_KEY / SARVAM_API_KEY
-python -m pytest -q tests                              # 47 tests, no network or keys needed
+python -m pytest -q tests                              # 69 tests, no network or keys needed
 uvicorn app:app --reload --port 8000
 ```
 Frontend: `NEXT_PUBLIC_API_URL=http://localhost:8000` (already the default). The
@@ -45,6 +45,13 @@ python backend/build_panchayat_index.py --repo .       # writes outputs/layer2/p
 ## Auxiliary layers (Layer 3)
 The committed soil / NDVI / land-cover arrays under `data/aux_data/` are read by the advisory engine
 (`backend/aux_layers.py`). `GET /api/advisory` looks up the cell for `panchayat_id` and adds three
+data-driven rules:
+
+* **R6_VEGETATION** — low satellite NDVI (sparse/stressed vegetation; escalated when rain is also low)
+* **R7_SOIL_DRAINAGE** — waterlogging risk on wet days over clay-rich soil
+* **R8_LANDCOVER** — flags cells whose dominant land cover is not cropland (advisory is indicative)
+
+The looked-up values are returned in `evidence.aux` and inside each rule's `inputs`.
 
 ### Why the advisory verifies the rainfall
 
@@ -67,13 +74,6 @@ that were asked about. `GET /api/advisory` therefore resolves that value itself 
 the source string, the fine-grid cell and whether aux was resolved) so a caller — or a judge — can
 see exactly what was checked. Temperature and humidity remain **caller-supplied** and are labelled as
 such. Use `POST /api/advisory` for deliberate what-if runs that are not tied to the stored field.
-data-driven rules:
-
-* **R6_VEGETATION** — low satellite NDVI (sparse/stressed vegetation; escalated when rain is also low)
-* **R7_SOIL_DRAINAGE** — waterlogging risk on wet days over clay-rich soil
-* **R8_LANDCOVER** — flags cells whose dominant land cover is not cropland (advisory is indicative)
-
-The looked-up values are returned in `evidence.aux` and inside each rule's `inputs`.
 
 ## Configuration
 See `.env.example`. Everything is optional — with empty keys the advisory uses the deterministic
