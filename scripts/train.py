@@ -10,7 +10,7 @@ Key scientific properties:
   * Strict time-based splits produced by preprocess.py (no shuffling across time).
 
 Run:
-  python scripts/train.py --channels imd_rain,dem,era5_t2m,era5_t2m_max,era5_dewp,era5_wind \
+  python scripts/train.py --channels imd_rain,dem,era5_t2m,era5_t2m_max,era5_dewp \
       --loss weighted --out-name model_ablation_d
 """
 from __future__ import annotations
@@ -24,9 +24,31 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
+from contextlib import nullcontext
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config  # noqa: E402
+
+
+# --------------------------------------------------------------------------
+def get_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def make_scaler(device, enabled):
+    if device.type != "cuda" or not enabled:
+        return None
+    try:
+        return torch.amp.GradScaler("cuda", enabled=True)
+    except (AttributeError, TypeError):
+        return torch.cuda.amp.GradScaler(enabled=True)
+
+def autocast_context(device, enabled):
+    if device.type != "cuda" or not enabled:
+        return nullcontext()
+    try:
+        return torch.autocast(device_type="cuda", dtype=torch.float16)
+    except (AttributeError, TypeError):
+        return torch.cuda.amp.autocast(enabled=True)
 
 
 # --------------------------------------------------------------------------
@@ -160,7 +182,10 @@ def main():
     ap.add_argument("--epochs", type=int, default=300)
     ap.add_argument("--patience", type=int, default=40)
     ap.add_argument("--width", type=int, default=16)
-    ap.add_argument("--batch", type=int, default=16)
+    ap.add_argument("--batch", type=int, default=16,
+                    help="training batch size")
+    ap.add_argument("--amp", type=int, default=1,
+                    help="1 = CUDA mixed precision, 0 = FP32")
     ap.add_argument("--patch", type=int, default=48,
                     help="random NxN training crops (0 = full frames)")
     ap.add_argument("--lr", type=float, default=1e-3)
@@ -175,7 +200,16 @@ def main():
     channels = [c.strip() for c in args.channels.split(",") if c.strip()]
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = get_device()
+    use_amp = bool(args.amp and device.type == "cuda")
+
+    if device.type == "cuda":
+        torch.backends.cudnn.benchmark = True
+        gpu_name = torch.cuda.get_device_name(0)
+        vram = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
+        print(f"device=cuda | GPU={gpu_name} | VRAM={vram:.1f} GB | AMP={use_amp}")
+    else:
+        print("device=cpu | AMP=False")
 
     X, Y, M, meta = load_data()
     rain_scale = meta["normalization"]["rain_scale_mm"]
@@ -199,6 +233,8 @@ def main():
     n_params = sum(p.numel() for p in model.parameters())
     print(f"model: SmallUNet(width={args.width}) params={n_params/1e3:.1f}k")
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
+    scaler = make_scaler(device, use_amp)
+
     sched = torch.optim.lr_scheduler.ReduceLROnPlateau(
         opt, mode="min", factor=0.5, patience=max(args.patience // 3, 5))
 
@@ -228,11 +264,21 @@ def main():
                 xb, yb, mb, bb = (torch.flip(A, [-1]) for A in (xb, yb, mb, bb))
             if rng.random() < 0.5:
                 xb, yb, mb, bb = (torch.flip(A, [-2]) for A in (xb, yb, mb, bb))
-            opt.zero_grad()
-            loss = loss_fn(model(xb, baseline=bb), yb, mb)
-            loss.backward()
-            opt.step()
-            tr_losses.append(loss.item())
+            opt.zero_grad(set_to_none=True)
+
+            with autocast_context(device, use_amp):
+                pred = model(xb, baseline=bb)
+                loss = loss_fn(pred, yb, mb)
+
+            if scaler is not None:
+                scaler.scale(loss).backward()
+                scaler.step(opt)
+                scaler.update()
+            else:
+                loss.backward()
+                opt.step()
+
+            tr_losses.append(loss.detach().float().item())
 
         model.eval()
         with torch.no_grad():
@@ -244,7 +290,8 @@ def main():
                 vs = np.arange(len(T["val"][0]))
             Xv, Yv, Mv, Bv = (T["val"][i][torch.as_tensor(vs)].to(device)
                               for i in range(4))
-            val_loss = loss_fn(model(Xv, baseline=Bv), Yv, Mv).item()
+            with autocast_context(device, use_amp):
+                val_loss = loss_fn(model(Xv, baseline=Bv), Yv, Mv).item()
         sched.step(val_loss)
         history.append({"epoch": epoch,
                         "train_loss": float(np.mean(tr_losses)),
@@ -261,10 +308,13 @@ def main():
                         "best_val_loss": best_val,
                         "channels": channels,
                         "loss": args.loss,
-                        "history": history}, ckpt_path)
+                        "history": history, "amp": use_amp, "device": str(device)}, ckpt_path)
         if epoch % 25 == 0 or epoch == 1:
+            gpu_mem = ""
+            if device.type == "cuda":
+                gpu_mem = f"  GPU_mem={torch.cuda.memory_allocated() / (1024**3):.2f}GB"
             print(f"  epoch {epoch:4d}  train {np.mean(tr_losses):.4f}  "
-                  f"val {val_loss:.4f}  best {best_val:.4f} @ {best_epoch}")
+                  f"val {val_loss:.4f}  best {best_val:.4f} @ {best_epoch}{gpu_mem}")
         if epoch - best_epoch >= args.patience:
             print(f"early stopping at epoch {epoch}")
             break
@@ -286,7 +336,7 @@ def main():
     with open(config.MODELS / f"{args.out_name}_history.json", "w") as f:
         json.dump({"args": {**vars(args), "channels": channels},
                    "history": history, "best_val_loss": best_val,
-                   "best_epoch": best_epoch, "train_seconds": dt}, f, indent=1)
+                   "best_epoch": best_epoch, "train_seconds": dt, "amp": use_amp, "device": str(device)}, f, indent=1)
 
 
 if __name__ == "__main__":

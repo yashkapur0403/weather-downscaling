@@ -1,11 +1,11 @@
 row,model,split,MAE_mm,RMSE_mm,corr,F1_ge10mm,F1_ge25mm,F1_ge50mm
-A,Bilinear IMD baseline,val,6.724,15.509,0.2573,0.296,0.156,0.111
-B,U-Net rainfall only,val,5.351,15.115,0.2832,0.115,0.059,0.035
-C,U-Net + DEM,val,5.395,14.976,0.2894,0.149,0.063,0.026
-Cw,U-Net + DEM (weighted loss),val,6.038,14.386,0.3720,0.295,0.287,0.185
-D,U-Net + DEM + ERA5-Land,val,5.414,14.574,0.3307,0.224,0.137,0.053
-A,Bilinear IMD baseline,test,7.668,16.931,0.3037,0.413,0.217,0.112
-B,U-Net rainfall only,test,6.630,16.875,0.3040,0.186,0.055,0.003
-C,U-Net + DEM,test,6.577,16.685,0.3141,0.229,0.061,0.003
-Cw,U-Net + DEM (weighted loss),test,6.915,15.604,0.4193,0.374,0.312,0.181
-D,U-Net + DEM + ERA5-Land,test,6.445,16.042,0.3763,0.319,0.146,0.043
+A,Bilinear IMD baseline,val,8.554,16.325,0.2876,0.410,0.228,0.137
+B,U-Net rainfall only,val,7.135,14.520,0.2928,0.205,0.126,0.094
+C,U-Net + DEM,val,7.045,14.156,0.3185,0.258,0.132,0.077
+Cw,U-Net + DEM (weighted loss),val,11.398,18.801,0.2258,0.385,0.226,0.139
+D,U-Net + DEM + ERA5-Land,val,6.933,13.787,0.3457,0.312,0.174,0.023
+A,Bilinear IMD baseline,test,9.603,18.183,0.3850,0.477,0.343,0.234
+B,U-Net rainfall only,test,8.515,16.928,0.3957,0.281,0.226,0.115
+C,U-Net + DEM,test,8.362,16.496,0.4193,0.332,0.231,0.104
+Cw,U-Net + DEM (weighted loss),test,12.268,20.108,0.2868,0.440,0.305,0.188
+D,U-Net + DEM + ERA5-Land,test,8.167,16.014,0.4461,0.393,0.281,0.015

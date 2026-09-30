@@ -13,6 +13,10 @@ data/aux_data/admin/*.geojson
 data.zip
 data_pilot_westernghats_LEGACY.zip
 
+# Large Layer 2 generated dataset products (>100MB, exceeded GitHub limit)
+outputs/layer2/panchayat_weather.csv
+outputs/layer2/panchayat_weather.geojson
+
 # --- Frontend/backend app (weather-downscaling-main/) ------------------------
 .env
 node_modules/
@@ -27,8 +31,3 @@ __pycache__/
 # --- OS / editor -------------------------------------------------------------
 .DS_Store
 Thumbs.db
-
-# --- Local QA worktree --------------------------------------------------------
-# A linked git worktree used for QA lives here; without this, `git add -A` in
-# this checkout would try to commit the whole nested working tree.
-.qa-b1/
