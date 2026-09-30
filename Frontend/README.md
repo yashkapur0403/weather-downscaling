@@ -22,10 +22,10 @@ The frontend runs at **http://localhost:3000**.
 The frontend expects a FastAPI backend at `http://localhost:8000`.
 
 ```bash
-# From the repo root
-cd weather-downscaling-main
+# From the repo root (the app lives at backend/, not weather-downscaling-main/)
+cd backend
 pip install -r requirements.txt
-uvicorn backend.app:app --reload --port 8000
+uvicorn app:app --reload --port 8000
 ```
 
 To point the frontend at a different backend URL, edit `.env.local`:
@@ -49,7 +49,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## Tech Stack
 
-- **Next.js 15** (App Router)
+- **Next.js 16** (App Router)
 - **React 19** + TypeScript
 - **Tailwind CSS 3**
 - **Leaflet** (map)
