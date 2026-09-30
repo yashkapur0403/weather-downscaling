@@ -26,6 +26,12 @@
 > | **D-8** (`HANDOVER.md` documents only the ML pipeline) | **open by design** — `backend/README.md` and these two QA reports are the app-side documentation |
 > | **D-4** (`layer2_qc.json` paths from another machine), **D-9** (`DADRA,NAGAR HAVELI,DAMAN & DIU` state-string mismatch) | **open**, low severity |
 >
+> **Path note.** Paths written as `.qa-b1/…` below are the isolated `git worktree` used at test time.
+> The QA evidence has since been committed at the repository root, so read `.qa-b1/qa_*.py` and
+> `.qa-b1/qa_*.json` as `qa_*.py` / `qa_*.json`, and `.qa-b1/backend` as `backend/`.
+> `.qa-b1/_backup_original/` (the pre-fix backup) and the `.log` files are local-only and are
+> gitignored on purpose, so a fresh clone will not have them.
+>
 > The two advisory defects this report surfaced — `GET /api/advisory` trusting a caller-supplied
 > `rainfall_mm`, and the frontend's `x || fallback` turning a legitimate `0.0 mm` into the previous
 > selection's value — are **fixed** (server-side verification with 409/422, and `??`), and the honest
@@ -658,7 +664,9 @@ not a regression. `AMRUTHALUR` now correctly refuses instead of returning a borr
 heavy-rain metrics are materially improved, and Layer 3 now uses the auxiliary layers. Remaining
 items are the documented F1≥50 mm limitation and un-committed large data.
 
-*Repository state: branch `fix/qa-hardening` @ `3395023` (not pushed). Evidence: `.qa-b1/qa_*.json`,
-`.qa-b1/_backup_original/` (pre-fix artefacts), and the inline verification outputs in §14.1.*
+*Repository state at the time of writing: branch `fix/qa-hardening` @ `3395023`. Evidence: the
+`qa_*.json` files at the repository root, the local pre-fix backup `_backup_original/` (not committed —
+gitignored), and the inline verification outputs in §14.1. The branch has since been pushed and the
+findings re-checked — see the status note at the top.*
 
 *End of report.*
