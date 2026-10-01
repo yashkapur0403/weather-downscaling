@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { fetchAdvisory, ApiError } from '../../api/backend';
-import type { Panchayat, AdvisoryResponse, CropType, CropStage } from '../../types';
+import type { Panchayat, AdvisoryResponse, CropType, CropStage, ActionItem } from '../../types';
 import { SEVERITY_STYLE, CROP_OPTIONS, STAGE_OPTIONS } from '../../types';
 import { Sprout, AlertTriangle, CheckCircle, Info, Loader2, ChevronDown } from 'lucide-react';
 
@@ -18,6 +18,31 @@ interface AdvisoryPanelProps {
 interface AdvisoryError {
   kind: 'withheld' | 'unavailable';
   message: string;
+}
+
+/** Compact rendering of a value for the evidence line. */
+function fmtValue(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'number') return String(Math.round(v * 100) / 100);
+  if (typeof v === 'boolean') return v ? 'yes' : 'no';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') {
+    return Object.entries(v as Record<string, unknown>)
+      .filter(([, x]) => x != null && x !== '')
+      .map(([k, x]) => `${k.replace(/_/g, ' ')} ${fmtValue(x)}`)
+      .join(', ');
+  }
+  return '';
+}
+
+/** "clay 389, rainfall 26.2" from a record of inputs/evidence. */
+function evidenceList(obj: Record<string, unknown> | undefined): string {
+  if (!obj) return '';
+  return Object.entries(obj)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `${k.replace(/_/g, ' ')} ${fmtValue(v)}`.trim())
+    .filter(s => s && !s.endsWith(' '))
+    .join(', ');
 }
 
 export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps) {
@@ -38,6 +63,7 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
         stage,
         selected.rainfall_mm,
         selected.temperature_c ?? null,
+        selected.humidity_pct ?? null,
         selected.date || '2022-07-10',
         selected.panchayat_name,
       );
@@ -85,6 +111,13 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
   if (!isProjectionRun || !selected) return null;
 
   const sev = advisory ? SEVERITY_STYLE[advisory.severity] : null;
+  // Prefer the evidence-bearing action items; fall back to the plain list.
+  const actionsWithEvidence: ActionItem[] = advisory
+    ? advisory.action_items ?? advisory.actions.map(a => ({
+        action: a, risk: '', rule_id: '', severity: 'none' as const,
+        evidence: {}, crop_relevant: false, stage_relevant: false,
+      }))
+    : [];
 
   return (
     <div className="advisory-panel">
@@ -185,19 +218,112 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
               {advisory.advisory_text}
             </p>
 
-            {/* Actions */}
-            {advisory.actions.length > 0 && (
+            {/* Recommended actions - each carries the rule + evidence behind it */}
+            {actionsWithEvidence.length > 0 && (
               <div className="space-y-1.5">
                 <p className="label-sm">Recommended Actions</p>
-                <ul className="space-y-1">
-                  {advisory.actions.map((action, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[0.65rem]" style={{ color: 'var(--text-2)' }}>
-                      <span className="font-mono mt-px flex-shrink-0" style={{ color: sev!.color }}>→</span>
-                      {action}
-                    </li>
-                  ))}
+                <ul className="space-y-2">
+                  {actionsWithEvidence.map((item, i) => {
+                    const ev = evidenceList(item.evidence);
+                    return (
+                      <li key={i} className="text-[0.65rem]" style={{ color: 'var(--text-2)' }}>
+                        <div className="flex items-start gap-2">
+                          <span className="font-mono mt-px flex-shrink-0" style={{ color: sev!.color }}>→</span>
+                          <div>
+                            <span>{item.action}</span>
+                            {(item.risk || ev) && (
+                              <p className="text-[0.55rem] leading-relaxed mt-0.5" style={{ color: 'var(--muted)' }}>
+                                {item.risk}{ev ? ` — evidence: ${ev}` : ''}
+                                {item.crop_relevant ? ' · crop-dependent' : ''}
+                                {item.stage_relevant ? ' · stage-dependent' : ''}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
+            )}
+
+            {/* Why this advisory? — agricultural evidence, SEPARATE from the model XAI */}
+            {(advisory.advisory_context || advisory.soil_context || advisory.crop_suitability ||
+              (advisory.fired_rules && advisory.fired_rules.length > 0) || advisory.evidence_groups) && (
+              <details className="pt-1" style={{ borderTop: '1px solid var(--hairline)' }}>
+                <summary className="label-sm cursor-pointer select-none" style={{ color: 'var(--text-2)' }}>
+                  Why this advisory?
+                </summary>
+                <div className="space-y-2 pt-2">
+                  {advisory.advisory_context?.explanation && (
+                    <p className="text-[0.6rem] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+                      {advisory.advisory_context.explanation}
+                    </p>
+                  )}
+
+                  {advisory.soil_context && (
+                    <div>
+                      <p className="text-[0.55rem] font-mono uppercase tracking-wider" style={{ color: 'var(--muted)' }}>
+                        Soil characteristics{advisory.soil_context.depth ? ` · ${advisory.soil_context.depth}` : ''}
+                      </p>
+                      {advisory.soil_context.available ? (
+                        <ul className="mt-1 space-y-0.5">
+                          {advisory.soil_context.properties.map(p => (
+                            <li key={p.key} className="flex justify-between text-[0.6rem]" style={{ color: 'var(--text-2)' }}>
+                              <span>{p.label}</span>
+                              <span className="font-mono">{p.value}{p.unit ? ` ${p.unit}` : ''}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[0.55rem] mt-0.5 leading-relaxed" style={{ color: 'var(--muted)' }}>
+                          {advisory.soil_context.note}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {advisory.crop_suitability && !advisory.crop_suitability.available && (
+                    <p className="text-[0.55rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
+                      {advisory.crop_suitability.reason}
+                    </p>
+                  )}
+
+                  {advisory.fired_rules && advisory.fired_rules.length > 0 && (
+                    <div>
+                      <p className="text-[0.55rem] font-mono uppercase tracking-wider" style={{ color: 'var(--muted)' }}>Triggered rules</p>
+                      <ul className="mt-1 space-y-1">
+                        {advisory.fired_rules.map(r => {
+                          const ev = evidenceList(r.inputs);
+                          return (
+                            <li key={r.rule_id} className="text-[0.55rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
+                              <span style={{ color: 'var(--text-2)' }}>{r.name}</span> — {r.condition}
+                              {ev ? ` (${ev})` : ''}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+
+                  {advisory.evidence_groups && (
+                    <div className="space-y-0.5">
+                      <p className="text-[0.55rem] font-mono uppercase tracking-wider" style={{ color: 'var(--muted)' }}>Evidence</p>
+                      {(['observed', 'user_provided', 'derived'] as const).map(g => (
+                        <p key={g} className="text-[0.55rem] leading-relaxed" style={{ color: 'var(--text-2)' }}>
+                          <span style={{ color: 'var(--muted)' }}>{g.replace(/_/g, ' ')}: </span>
+                          {evidenceList(advisory.evidence_groups![g] as Record<string, unknown>) || '—'}
+                        </p>
+                      ))}
+                      {advisory.evidence_groups.not_available.length > 0 && (
+                        <p className="text-[0.55rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
+                          not available: {advisory.evidence_groups.not_available.join('; ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </details>
             )}
 
             {/* Evidence row */}

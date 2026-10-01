@@ -46,7 +46,8 @@ CROP_PARAMS: dict[str, dict] = {
 
 # Frontend growth-stage names -> engine stages (None = unknown / general)
 FRONTEND_STAGE = {"general": None, "sowing": "sowing", "vegetative": "vegetative",
-                  "flowering": "flowering", "ripening": "maturity", "harvest": "harvest"}
+                  "flowering": "flowering", "grain_filling": "grain_filling",
+                  "ripening": "maturity", "maturity": "maturity", "harvest": "harvest"}
 
 # Short action bullets shown as "Recommended Actions" in the UI, per rule
 RULE_ACTIONS = {
@@ -54,7 +55,10 @@ RULE_ACTIONS = {
                       "Hold back irrigation and fertiliser"],
     "R1B_SUBSTANTIAL_RAIN": ["Check that field drainage is working", "Avoid spraying or fertiliser for about 48 hours"],
     "R2_IRRIGATION": ["Check field moisture", "Plan irrigation within the next few days"],
-    "R3_HEAT_STRESS": ["Irrigate lightly in the evening if water is available", "Avoid spraying in the afternoon"],
+    # Irrigation is made conditional on the SOIL state, so it cannot contradict the
+    # heavy-rain rule's "hold back irrigation" when both fire on the same day.
+    "R3_HEAT_STRESS": ["Avoid spraying in the afternoon",
+                       "Irrigate lightly in the evening only if the soil is dry"],
     "R4_DISEASE": ["Scout the field for early symptoms", "Consult your local agriculture office about preventive spray"],
     "R5_LODGING": ["Avoid irrigating just before strong wind", "Support or earth-up tall plants where possible"],
     "R6_VEGETATION": ["Inspect the crop for water stress", "Check soil moisture before the next irrigation"],
@@ -74,6 +78,26 @@ WIND_KMH = 40.0
 NDVI_LOW = 0.30             # below this, satellite NDVI indicates sparse/stressed vegetation
 CLAY_HIGH_G_PER_KG = 350.0  # above this, soil drains slowly (waterlogging risk on wet days)
 SAND_HIGH_G_PER_KG = 600.0  # above this, soil holds little water (needs irrigation sooner)
+
+# Which rules are actually able to react to the user's crop / stage selection.
+# This is a factual description of the rule set, used to tell the user honestly
+# whether their crop/stage choice did or did not change the advice.
+CROP_SENSITIVE_RULES = ("R2_IRRIGATION", "R3_HEAT_STRESS", "R4_DISEASE", "R5_LODGING")
+STAGE_SENSITIVE_RULES = ("R3_HEAT_STRESS",)
+
+# Soil characteristics advertised by the SoilGrids aux layer, with display units.
+# These are MEASURED PROPERTIES. The dataset encodes no soil-texture/type class,
+# so the product must never present one (see soil_characteristics()).
+SOIL_CHARACTERISTIC_LABELS = {
+    "clay_g_per_kg": ("Clay", "g/kg"),
+    "sand_g_per_kg": ("Sand", "g/kg"),
+    "ph": ("pH", ""),
+    "ocd_dg_per_dm3": ("Organic carbon", "dg/dm3"),
+    "bdod": ("Bulk density", "kg/dm3"),
+}
+# SoilGrids stores bulk density in its mapped unit cg/cm3; conventional kg/dm3 = raw / 100
+# (ISRIC conversion factor 100). Every other property is already in the unit shown.
+SOIL_VALUE_SCALE = {"bdod": 0.01}
 
 
 # --------------------------------------------------------------------------
@@ -168,9 +192,41 @@ class DownscalingExplanation(BaseModel):
     text_en: str
 
 
+class ContextEffect(BaseModel):
+    """How the user's crop / stage selection did (or did not) steer the decision.
+
+    Computed by re-running the rule set once with crop="general" and stage=None on
+    the SAME weather and comparing which rules fired, so the claim is measured,
+    not asserted. When nothing changes, the text says so plainly.
+    """
+    crop: str
+    stage: Optional[str] = None
+    user_selected_crop: str
+    crop_detected: bool = False                 # no crop-type dataset exists in this deployment
+    crop_dataset_available: bool = False
+    crop_parameters: dict = {}                  # the exact thresholds applied (from CROP_PARAMS)
+    crop_sensitive_rules: list[str] = []        # rules that read a crop parameter
+    stage_sensitive_rules: list[str] = []       # rules that read the crop stage
+    materially_changed: bool = False            # did crop/stage change which rules fired?
+    explanation: str = ""
+
+
+class ActionItem(BaseModel):
+    """One recommended action, attributed to the rule that produced it and the
+    measured inputs that made that rule fire."""
+    action: str
+    risk: str
+    rule_id: str
+    severity: Severity = "none"
+    evidence: dict = {}
+    crop_relevant: bool = False
+    stage_relevant: bool = False
+
+
 class AdvisoryTrace(BaseModel):
     panchayat: str
     crop: str
+    stage: Optional[str] = None
     severity: Severity
     action: str                            # short machine-readable label
     headline_en: str                       # deterministic farmer message
@@ -178,6 +234,11 @@ class AdvisoryTrace(BaseModel):
     confidence: float
     confidence_reasons: list[str]
     downscaling: Optional[DownscalingExplanation] = None
+    # deterministic, data-grounded context added for the "Why this advisory?" view
+    context: Optional[ContextEffect] = None
+    soil: dict = {}                        # measured characteristics - never a fabricated soil type
+    crop_suitability: dict = {}
+    evidence_groups: dict = {}
 
 
 # --------------------------------------------------------------------------
@@ -293,7 +354,7 @@ def _r_heat(i: PanchayatInput, p: dict) -> RuleResult:
                    else ("stage is outside the heat-sensitive window" if not sensitive
                          else f"would fire at {_n(thr)} C or above")),
         advice_en=(f"High temperature ({_n(i.temp())} C) at a heat-sensitive stage of {i.crop}. "
-                   f"Irrigate lightly in the evening if water is available and avoid spraying in the afternoon."
+                   f"Avoid spraying in the afternoon; if the soil is dry, irrigate lightly in the evening."
                    if fired else ""),
     )
 
@@ -428,6 +489,143 @@ _RULES = (_r_heavy_rain, _r_substantial_rain, _r_irrigation, _r_heat, _r_disease
 
 
 # --------------------------------------------------------------------------
+# Data-grounded context (crop/stage causality, soil, evidence provenance)
+# --------------------------------------------------------------------------
+def _fire_ids(i: PanchayatInput) -> set[str]:
+    """Rule ids that fire for this input - used to measure crop/stage causality."""
+    p = CROP_PARAMS[i.crop]
+    return {r.rule_id for r in (fn(i, p) for fn in _RULES) if r.fired}
+
+
+def context_effect(i: PanchayatInput, rules: list[RuleResult]) -> ContextEffect:
+    """State plainly whether crop/stage changed the outcome, and how.
+
+    The comparison re-runs the REAL rules on the same weather with crop="general"
+    and no stage, so `materially_changed` is measured, not assumed.
+    """
+    p = CROP_PARAMS[i.crop]
+    fired = {r.rule_id for r in rules if r.fired}
+    if i.crop == "general" and i.stage is None:
+        materially, baseline = False, set()
+    else:
+        baseline = _fire_ids(i.model_copy(update={"crop": "general", "stage": None}))
+        materially = baseline != fired
+
+    if i.stage is None:
+        stage_txt = ("No crop stage was selected, so the stage-sensitive rule (heat stress) "
+                     "was not evaluated.")
+    elif i.stage in p["stages"]:
+        stage_txt = (f"The selected stage '{i.stage}' is heat-sensitive for {i.crop}, so the "
+                     "heat-stress rule was evaluated against it.")
+    else:
+        stage_txt = (f"The selected stage '{i.stage}' is outside the heat-sensitive window for "
+                     f"{i.crop} ({', '.join(sorted(p['stages']))}), so heat stress was not applied.")
+    if materially:
+        diff = sorted(baseline ^ fired)
+        changed = (f"Changing crop/stage changed which rules fired ({', '.join(diff) or 'none'}), "
+                   "so the recommendation reflects the crop/stage-specific thresholds below.")
+    else:
+        changed = ("Under the current rule set this crop/stage produced the same fired rules as a "
+                   "general, stage-less advisory on the same weather; the difference is confined "
+                   "to the crop/stage-specific thresholds shown here, not a different action list.")
+    return ContextEffect(
+        crop=i.crop, stage=i.stage, user_selected_crop=i.crop,
+        crop_detected=False, crop_dataset_available=False,
+        crop_parameters={
+            "heat_threshold_c": p["heat"], "heat_sensitive_stages": sorted(p["stages"]),
+            "dry_soil_moisture_threshold": p["dry_sm"], "disease": p["disease"],
+            "tall_crop": p["tall"],
+        },
+        crop_sensitive_rules=sorted(CROP_SENSITIVE_RULES),
+        stage_sensitive_rules=sorted(STAGE_SENSITIVE_RULES),
+        materially_changed=materially, explanation=f"{stage_txt} {changed}",
+    )
+
+
+def soil_characteristics(aux: Optional[AuxContext]) -> dict:
+    """Measured soil properties for the cell (SoilGrids, 5-15 cm).
+
+    The dataset carries NO soil-texture/type class, so values are reported as
+    characteristics only - never as a "soil type". Missing values are omitted,
+    not defaulted to a plausible-looking number.
+    """
+    base = {"crop_detected": False, "crop_dataset_available": False}
+    if aux is None or aux.soil is None:
+        return {**base, "available": False, "depth": None, "properties": [],
+                "note": "No soil data was retrieved for this cell; no characteristics are shown."}
+    s = aux.soil
+    props = []
+    for key, (label, unit) in SOIL_CHARACTERISTIC_LABELS.items():
+        v = getattr(s, key, None)
+        if v is not None:
+            v = float(v) * SOIL_VALUE_SCALE.get(key, 1.0)
+            props.append({"key": key, "label": label, "value": round(v, 4), "unit": unit})
+    return {**base, "available": bool(props), "depth": s.depth, "properties": props,
+            "note": ("Measured SoilGrids properties for the Panchayat's own 0.05 deg cell. "
+                     "No soil-type classification is encoded in this dataset.")}
+
+
+def crop_suitability(aux: Optional[AuxContext], crop: str) -> dict:
+    """A data-grounded crop-suitability suggestion requires either a crop-type
+    dataset or a validated soil-classification rule. This deployment has NEITHER,
+    so it refuses to invent one and says so explicitly instead.
+    """
+    return {
+        "available": False,
+        "reason": ("Insufficient data for a data-grounded crop-suitability suggestion: this "
+                   "deployment has no crop-type dataset and no soil-classification dataset "
+                   "(only measured soil properties and a user-selected crop)."),
+        "crop_detected": False,
+        "crop_dataset_available": False,
+        "user_selected_crop": crop,
+        "evidence": soil_characteristics(aux)["properties"],
+    }
+
+
+def evidence_groups(i: PanchayatInput, trace: AdvisoryTrace) -> dict:
+    """Split every value in the decision by provenance, so the UI/LLM can never
+    blur what was OBSERVED, what the USER PROVIDED, what was DERIVED, and what was
+    NOT AVAILABLE."""
+    aux = i.aux
+    observed: dict = {"rainfall_mm": i.rainfall_mm}
+    if aux and aux.soil:
+        observed["soil"] = {p["label"]: p["value"] for p in soil_characteristics(aux)["properties"]}
+    if aux and aux.ndvi and aux.ndvi.value is not None:
+        observed["ndvi"] = aux.ndvi.value
+    if aux and aux.lulc:
+        observed["land_cover_dominant"] = aux.lulc.dominant
+        observed["cropland_fraction"] = (aux.lulc.fractions or {}).get("cropland_fraction")
+
+    provided = {
+        "crop": i.crop, "stage": i.stage,
+        "temperature_c": i.tmax_c if i.tmax_c is not None else i.tmean_c,
+        "humidity_pct": i.humidity_pct, "wind_kmh": i.wind_kmh,
+        "soil_moisture": i.soil_moisture,
+    }
+    provided = {k: v for k, v in provided.items() if v is not None}
+
+    derived = {"severity": trace.severity, "action": trace.action,
+               "confidence": trace.confidence,
+               "fired_rules": [r.rule_id for r in trace.rules if r.fired]}
+
+    missing: list[str] = []
+    if i.tmax_c is None and i.tmean_c is None:
+        missing.append("temperature - heat-stress and disease rules not evaluated")
+    if i.humidity_pct is None:
+        missing.append("humidity - disease rule not evaluated")
+    if i.wind_kmh is None:
+        missing.append("wind - lodging rule not evaluated")
+    if i.soil_moisture is None:
+        missing.append("soil moisture - irrigation rule used the rain-only fallback")
+    if i.stage is None:
+        missing.append("crop stage - heat-stress rule not evaluated")
+    if aux is None:
+        missing.append("soil / NDVI / land cover - no auxiliary data for this cell")
+    return {"observed": observed, "user_provided": provided, "derived": derived,
+            "not_available": missing}
+
+
+# --------------------------------------------------------------------------
 # Downscaling explanation (why this Panchayat differs from the Block)
 # --------------------------------------------------------------------------
 def explain_downscaling(i: PanchayatInput) -> Optional[DownscalingExplanation]:
@@ -495,11 +693,14 @@ def evaluate(i: PanchayatInput) -> AdvisoryTrace:
         reasons.append("downscaling attribution leaves a large unexplained residual")
     conf = round(max(conf, 0.3), 2)
 
-    return AdvisoryTrace(
-        panchayat=i.panchayat, crop=i.crop, severity=severity, action=action,
+    trace = AdvisoryTrace(
+        panchayat=i.panchayat, crop=i.crop, stage=i.stage, severity=severity, action=action,
         headline_en=headline, rules=rules, confidence=conf, confidence_reasons=reasons,
         downscaling=explain_downscaling(i),
+        context=context_effect(i, rules), soil=soil_characteristics(i.aux),
+        crop_suitability=crop_suitability(i.aux, i.crop),
     )
+    return trace.model_copy(update={"evidence_groups": evidence_groups(i, trace)})
 
 
 # --------------------------------------------------------------------------
@@ -523,12 +724,52 @@ def is_faithful(message: str, trace: AdvisoryTrace) -> bool:
     return numbers_in(message) <= allowed_numbers(trace)
 
 
+def _rule_actions(rule: RuleResult) -> list[str]:
+    """Context-aware action bullets for a fired rule.
+
+    Most rules have a fixed bullet list, but R6 must not tell a farmer to check for
+    water stress on a day of heavy rain. When the vegetation rule fires while rain
+    is NOT low (severity "low") its bullets are about cover/sparse growth instead;
+    only low-NDVI + low-rain (severity "medium") means a genuine water-stress signal.
+    """
+    if rule.rule_id == "R6_VEGETATION":
+        if rule.severity == "medium":
+            return RULE_ACTIONS["R6_VEGETATION"]
+        return ["Inspect the crop for stress or sparse cover",
+                "Compare this field with nearby fields"]
+    return RULE_ACTIONS.get(rule.rule_id, [])
+
+
 def actions_for(trace: AdvisoryTrace) -> list[str]:
     """Deduplicated action bullets for the fired rules, most severe first."""
     fired = sorted((r for r in trace.rules if r.fired), key=lambda r: -_SEV_ORDER[r.severity])
     out: list[str] = []
     for r in fired:
-        for a in RULE_ACTIONS.get(r.rule_id, []):
+        for a in _rule_actions(r):
             if a not in out:
                 out.append(a)
     return out or ["Continue scheduled operations", "Maintain regular irrigation if dry conditions persist"]
+
+
+def action_items_for(trace: AdvisoryTrace) -> list[ActionItem]:
+    """The same actions as `actions_for`, but each one carries the rule that
+    produced it and the measured inputs that made that rule fire - so the UI can
+    show `evidence -> action` instead of an unattributed checklist."""
+    fired = sorted((r for r in trace.rules if r.fired), key=lambda r: -_SEV_ORDER[r.severity])
+    items: list[ActionItem] = []
+    seen: set[tuple[str, str]] = set()
+    for r in fired:
+        for a in _rule_actions(r):
+            if (r.rule_id, a) in seen:
+                continue
+            seen.add((r.rule_id, a))
+            items.append(ActionItem(
+                action=a, risk=r.name, rule_id=r.rule_id, severity=r.severity,
+                evidence=dict(r.inputs),
+                crop_relevant=r.rule_id in CROP_SENSITIVE_RULES,
+                stage_relevant=r.rule_id in STAGE_SENSITIVE_RULES,
+            ))
+    if items:
+        return items
+    return [ActionItem(action=a, risk="Normal conditions", rule_id="NONE", severity="none")
+            for a in actions_for(trace)]

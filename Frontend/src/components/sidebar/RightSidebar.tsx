@@ -101,7 +101,9 @@ export function RightSidebar({
           ) : (
             <p className="metric-number text-2xl">{metrics?.selected_model.test_mae_mm?.toFixed(2) ?? '—'}</p>
           )}
-          <p className="text-[0.6rem] mt-0.5" style={{ color: 'var(--muted)' }}>vs IMD bilinear baseline (7.67 mm)</p>
+          <p className="text-[0.6rem] mt-0.5" style={{ color: 'var(--muted)' }}>
+            vs IMD bilinear baseline ({metrics?.baseline.test_mae_mm != null ? `${metrics.baseline.test_mae_mm} mm` : '—'})
+          </p>
         </div>
 
         {/* XAI */}

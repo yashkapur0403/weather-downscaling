@@ -648,6 +648,30 @@ makes the rule unevaluable** rather than assuming the crop is heat-sensitive (th
 was a real defect, fixed — see `docs/LOGICAL_VALIDATION_REPORT.md` A-6, and
 `backend/tests/test_advisory.py`).
 
+**"Why this number?" vs "Why this advisory?"** — the two explanations are now kept
+strictly apart. `POST /api/explain` explains the **rainfall estimate** from the
+model inputs (IMD, DEM, ERA5); the advisory carries its own, separate agricultural
+evidence, all deterministic and returned by `GET /api/advisory`:
+
+* `advisory_context` — the exact crop parameters applied and whether the user's
+  crop/stage choice **actually changed which rules fired**. That is measured by
+  re-running the real rules once with `crop="general"` and no stage on the same
+  weather (`materially_changed`); when it changes nothing the trace says so rather
+  than pretending the advice was crop-specific.
+* `action_items` — every recommended action attributed to the rule that produced
+  it, with that rule's measured `inputs` as evidence (`evidence → action`).
+* `soil_context` — the **measured** SoilGrids characteristics actually retrieved
+  (clay/sand g/kg, pH, organic carbon, bulk density), never a fabricated "soil
+type": the dataset encodes no classification, and the text says so.
+* `crop_suitability` — either a data-grounded suggestion or, as here, an explicit
+  **"Insufficient data for a data-grounded crop-suitability suggestion"** (this
+  deployment has no crop-type and no soil-classification dataset).
+* `evidence_groups` — every decision value split into `observed` / `user_provided`
+  / `derived` / `not_available`, so nothing can be presented as more than it is.
+
+`crop_detected` is always `false` and the crop is always the user's own selection;
+missing inputs are named, not filled in.
+
 ### 9.4 Confidence is computed, never asked of the model
 
 The trace carries a `confidence` in [0.3, 1.0] with `confidence_reasons` listing
@@ -711,10 +735,12 @@ the same contract route by route.
 
 Next.js on port 3000, reading the backend at `NEXT_PUBLIC_API_URL` (default
 `http://localhost:8000`). Panchayat search (with district/block disambiguation),
-the rainfall card and map for a chosen date, the advisory panel (risk chip, action
-bullets, the evidence row with the exact rainfall and date used), the XAI panel
-(which rule fired, by how much it missed the threshold, and what would flip it) and
-a model card fed by `/api/metrics`.
+the rainfall card and map for a chosen date, the advisory panel (risk chip, **evidence-attributed action bullets**, an
+expandable **"Why this advisory?"** drawer with the crop/stage context, the
+measured soil characteristics, the triggered rules and the observed / user-provided
+/ derived / not-available evidence split), the XAI panel (**"Why this number?"** —
+which model input drove the rainfall, which rule fired, by how much it missed the
+threshold, and what would flip it) and a model card fed by `/api/metrics`.
 
 The frontend holds **no second copy of the rules**. When the backend refuses
 (409/422) the panel shows an explicit *"Advisory withheld"* with the reason, and if
@@ -726,24 +752,35 @@ disagreed with the engine in the band a farmer actually sees; it was removed —
 
 ### 9.8 How Layer 3 is verified
 
-`python -m pytest backend/tests` — **69 tests**, no network and no keys needed:
+`python -m pytest backend/tests` — **86 tests**, no network and no keys needed:
 the rule engine at every threshold boundary, the advisory-verification contract
 (409/422 for every refusal reason), the artifact-consistency contract (the served
-grid matches the provenance manifest), the aux wiring and the frontend contract.
+grid matches the provenance manifest), the aux wiring, the frontend contract, and
+`backend/tests/test_advisory_context.py` — crop/stage causality (measured, not
+asserted), soil-evidence fidelity, the no-fabrication guarantee and the unchanged
+rainfall contract.
 On top of that, `qa/qa_logic_advisory.py` sweeps **every** threshold at T±ε and
 runs 11 one-input perturbations to prove each input is causally used, and
 `qa/qa_logic_http.py` checks identity binding and cache isolation over live HTTP.
 
 ## 10. Limitations
 
-* **`GET /api/advisory` accepts a smaller crop-stage vocabulary than `POST`**
-  (finding A-9). The GET query enum is `general | sowing | vegetative | flowering
-  | ripening | harvest`, while the POST body takes any stage string. `grain_filling`
-  and `maturity` — the two stages the heat rule depends on most — are therefore
-  reachable through POST but rejected as **422** by GET (`ripening` covers
-  `maturity` via a synonym; `grain_filling` has no equivalent), so a GET caller
-  cannot express the stage that makes `R3_HEAT_STRESS` fire. The rules themselves
-  are correct (§9.2/§9.3); the fix is to widen `StageQ` in `backend/main.py`.
+* **Crop type is the user's selection, not a detection.** No crop-type dataset is
+  shipped, so `crop_detected` is always `false` and no crop-suitability claim is
+  made (`crop_suitability.available = false`, with the reason stated). ADR: the
+  advisory differentiates by crop/stage **only where the existing rule set actually
+  reacts** (heat threshold + sensitive stages, dry-soil threshold, tall-crop wind
+  rule); `advisory_context.materially_changed` records whether it did, and says so
+  when it did not.
+* **Manufactured data would be worse than a missing value.** Soil is shown as
+  measured characteristics only — the SoilGrids build encodes no texture/type class.
+  Bulk density is converted from the mapped unit (cg/cm³ ÷ 100 → kg/dm³) so the
+  number shown matches its label; unseen inputs appear under `not_available`.
+* **Fixed finding A-9** — `StageQ` in `backend/main.py` was widened to
+  `general | sowing | vegetative | flowering | grain_filling | ripening | maturity
+  | harvest`, so every engine stage (including `grain_filling`, which
+  `R3_HEAT_STRESS` depends on) is now selectable on `GET /api/advisory` and not just
+  on `POST`. Guarded by `backend/tests/test_advisory_context.py`.
 
 * **CHIRPS is the reference, not truth.** IMD and CHIRPS disagree substantially
   at daily scale (domain-mean daily coarse corr on the Deccan build ≈ 0.356);

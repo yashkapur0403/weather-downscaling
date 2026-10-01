@@ -49,11 +49,15 @@ function buildRequest(p: Panchayat, metrics: ModelMetrics | null, question?: str
       fallback_distance_m: p.fallback_distance_m,
     },
     model: {
-      name: metrics?.selected_model.name ?? 'U-Net Model D (DEM + ERA5)',
+      // Never invent model metrics: if /api/metrics is unavailable these are null,
+      // so the backend simply omits the accuracy sentence instead of showing a
+      // number the model may not have. DEFAULT_CHANNELS is the trained architecture
+      // (from the served manifest), not an estimate.
+      name: metrics?.selected_model.name ?? 'U-Net ensemble (DEM + ERA5-Land)',
       channels: metrics?.channels ?? DEFAULT_CHANNELS,
-      test_mae_mm: metrics?.selected_model.test_mae_mm ?? 6.45,
-      baseline_mae_mm: metrics?.baseline.test_mae_mm ?? 7.67,
-      mae_improvement_pct: metrics?.mae_improvement_pct ?? 15.9,
+      test_mae_mm: metrics?.selected_model.test_mae_mm ?? null,
+      baseline_mae_mm: metrics?.baseline.test_mae_mm ?? null,
+      mae_improvement_pct: metrics?.mae_improvement_pct ?? null,
       reference_product: metrics?.reference_product ?? 'CHIRPS v2.0',
     },
     question: question ?? null,

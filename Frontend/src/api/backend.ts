@@ -97,6 +97,7 @@ export async function fetchAdvisory(
   stage: CropStage,
   rainfallMm: number,
   temperatureC: number | null,
+  humidityPct: number | null,
   date: string,
   panchayatName: string,
   irrigationAvailable?: boolean,
@@ -111,6 +112,12 @@ export async function fetchAdvisory(
   });
   if (temperatureC !== null && temperatureC !== undefined) {
     params.set('temperature_c', String(temperatureC));
+  }
+  // Humidity comes from the same real source as temperature (GET /api/weather /
+  // POST /auth/). Passing it lets the disease-risk rule be evaluated instead of
+  // silently skipped; the backend still only states it was caller-supplied.
+  if (humidityPct !== null && humidityPct !== undefined) {
+    params.set('humidity_pct', String(humidityPct));
   }
   if (irrigationAvailable !== undefined) {
     params.set('irrigation_available', String(irrigationAvailable));

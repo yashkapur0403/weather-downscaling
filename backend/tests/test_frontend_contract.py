@@ -57,6 +57,31 @@ def test_explain_llm_down_and_question(client, monkeypatch):
     assert r["provider"] == "rules" and r["answer"]
 
 
+def test_explain_factor_list_covers_every_model_channel(client, monkeypatch):
+    """The deployed model consumes 5 channels; the panel must not show a subset."""
+    async def boom(model, facts_json, q): raise RuntimeError("down")
+    monkeypatch.setattr(main, "_explain_call", boom)
+    names = [f["factor"] for f in client.post("/api/explain", json=EXPLAIN_BODY).json()["factors"]]
+    assert len(names) == 5
+    assert any("T2m, daily mean" in n for n in names)
+    assert any("daily maximum" in n for n in names)
+    assert any("dewpoint" in n for n in names) and any("Elevation" in n for n in names)
+
+
+def test_explain_never_drops_a_channel_when_context_is_missing(client, monkeypatch):
+    """If the weather lookup failed, the model still used all 5 channels - the panel
+    must say the value is missing, not collapse to 'IMD only'."""
+    async def boom(model, facts_json, q): raise RuntimeError("down")
+    monkeypatch.setattr(main, "_explain_call", boom)
+    body = {**EXPLAIN_BODY, "prediction": {"rainfall_mm": 18.4, "risk_level": "moderate",
+                                            "temperature_c": None, "humidity_pct": None, "elevation_m": None}}
+    r = client.post("/api/explain", json=body).json()
+    names = [f["factor"] for f in r["factors"]]
+    assert len(names) == 5
+    assert any("Elevation" in n for n in names) and any("dewpoint" in n for n in names)
+    assert any("not supplied" in f["detail"] for f in r["factors"])
+
+
 def test_explain_only_lists_channels_the_model_used(client, monkeypatch):
     async def boom(model, facts_json, q): raise RuntimeError("down")
     monkeypatch.setattr(main, "_explain_call", boom)

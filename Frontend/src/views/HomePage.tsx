@@ -12,7 +12,7 @@ import { Database, Cpu, Map, Brain, Info } from 'lucide-react';
 
 const HOW_IT_WORKS_STEPS = [
   { n: '01', icon: <Database className="w-5 h-5" />, title: 'IMD Coarse Input', desc: 'Daily rainfall from IMD at 0.25° (~28 km) is bilinearly upsampled to 0.05° as the starting baseline.' },
-  { n: '02', icon: <Cpu className="w-5 h-5" />, title: 'U-Net Residual Correction', desc: 'A ~150k-param residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context.' },
+  { n: '02', icon: <Cpu className="w-5 h-5" />, title: 'U-Net Residual Correction', desc: 'A ~117k-param residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context (deployed as a 2-model ensemble).' },
   { n: '03', icon: <Map className="w-5 h-5" />, title: 'Panchayat Aggregation', desc: 'The 0.05° field is spatially joined to 86,103 LGD Gram Panchayat polygons using area-weighted averaging.' },
   { n: '04', icon: <Brain className="w-5 h-5" />, title: 'Explainable AI Output', desc: 'Each prediction is fully traceable — model inputs, mapping method, and performance metrics are shown alongside the value.' },
 ];
@@ -76,6 +76,9 @@ export function HomePage() {
       setSelected({
         ...selected,
         rainfall_mm: response.prediction.rainfall_mm ?? selected.rainfall_mm,
+        // The value is now the model's Layer-1 rainfall for the chosen date, not
+        // the 2022 season mean that search returned. The label follows this flag.
+        rainfall_basis: 'date_value',
         temperature_c: response.prediction.temperature_c ?? selected.temperature_c,
         humidity_pct: response.prediction.humidity_pct ?? selected.humidity_pct,
         elevation_m: response.prediction.elevation_m ?? selected.elevation_m,
@@ -222,7 +225,7 @@ export function HomePage() {
               <div className="mt-4 p-4" style={{ background: 'var(--raised)', border: '1px solid var(--hairline)', borderRadius: '4px' }}>
                 <p className="label-sm mb-2">Model Details</p>
                 <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: 'var(--text-2)' }}>
-                  <p>Parameters: ~150k</p>
+                  <p>Parameters: ~117k (ensemble of 2)</p>
                   <p>Architecture: Residual U-Net</p>
                   <p>Temporal split: 2019–20 train</p>
                   <p>Val: 2021 · Test: 2022</p>

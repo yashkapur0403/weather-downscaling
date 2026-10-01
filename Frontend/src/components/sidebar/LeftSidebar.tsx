@@ -7,7 +7,7 @@ import { classifyRisk, RISK_LABEL } from '../../types';
 import { Search, MapPin, Loader2, Layers, Clock, X, BarChart3, Activity } from 'lucide-react';
 
 // ── Recent searches helpers ───────────────────────────────────────────────────
-const RECENT_KEY = 'freebuff_recent_searches';
+const RECENT_KEY = 'obsidian_recent_searches';
 const MAX_RECENT = 6;
 
 function loadRecent(): Panchayat[] {
@@ -112,6 +112,11 @@ export function LeftSidebar({
     setRecent([]);
   }, []);
 
+  // Before a projection the rainfall on `selected` is the 2022 season mean that
+  // search returned, NOT the value for the chosen date. Label it so the number is
+  // never mistaken for a date-specific forecast.
+  const isSeasonMean = selected?.rainfall_basis === 'season_mean_2022';
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -157,7 +162,12 @@ export function LeftSidebar({
                       <div>
                         <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{p.panchayat_name}</p>
                         <p className="text-[0.6rem]" style={{ color: 'var(--muted)' }}>{p.block_name} · {p.district}</p>
-                        <p className="text-[0.6rem] font-mono" style={{ color: 'var(--heat-3)' }}>{p.rainfall_mm.toFixed(2)} mm</p>
+                        <p className="text-[0.6rem] font-mono" style={{ color: 'var(--heat-3)' }}>
+                          {p.rainfall_mm.toFixed(2)} mm
+                          {p.rainfall_basis === 'season_mean_2022' && (
+                            <span style={{ color: 'var(--muted)' }}> · 2022 season mean</span>
+                          )}
+                        </p>
                       </div>
                     </button>
                   ))
@@ -178,7 +188,7 @@ export function LeftSidebar({
           <label className="label-sm block" style={{ color: 'var(--muted)' }}>Data Layer</label>
           <div className="sidebar-select">
             <Layers className="w-4 h-4" style={{ color: 'var(--muted)' }} />
-            <span className="text-xs" style={{ color: 'var(--text)' }}>U-Net Model D (DEM + ERA5)</span>
+            <span className="text-xs" style={{ color: 'var(--text)' }}>U-Net ensemble (DEM + ERA5-Land)</span>
           </div>
           {/* Model Status Indicator */}
           <div className="flex items-center gap-2 mt-2">
@@ -232,11 +242,13 @@ export function LeftSidebar({
               </div>
               <div className="p-3 space-y-2" style={{ background: 'var(--raised)', border: '1px solid var(--hairline)', borderRadius: '4px' }}>
                 <div className="flex items-center justify-between">
-                  <span className="text-[0.6rem]" style={{ color: 'var(--muted)' }}>Rainfall</span>
+                  <span className="text-[0.6rem]" style={{ color: 'var(--muted)' }}>
+                    Rainfall{isSeasonMean ? ' (2022 season mean)' : ''}
+                  </span>
                   <span className="font-mono text-xs font-semibold" style={{ color: 'var(--heat-3)' }}>{selected.rainfall_mm.toFixed(2)} mm</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[0.6rem]" style={{ color: 'var(--muted)' }}>Risk Level</span>
+                  <span className="text-[0.6rem]" style={{ color: 'var(--muted)' }}>{isSeasonMean ? 'Risk (season)' : 'Risk Level'}</span>
                   <span className="text-[0.6rem] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{
                     background: classifyRisk(selected.rainfall_mm) === 'very_heavy' ? 'rgba(162,58,48,0.15)' : classifyRisk(selected.rainfall_mm) === 'heavy' ? 'rgba(190,106,46,0.15)' : classifyRisk(selected.rainfall_mm) === 'moderate' ? 'rgba(183,146,55,0.15)' : 'rgba(47,111,143,0.15)',
                     color: classifyRisk(selected.rainfall_mm) === 'very_heavy' ? 'var(--heat-4)' : classifyRisk(selected.rainfall_mm) === 'heavy' ? 'var(--heat-3)' : classifyRisk(selected.rainfall_mm) === 'moderate' ? 'var(--heat-2)' : 'var(--heat-1)',

@@ -34,6 +34,9 @@ export interface Panchayat {
   state: string;
   date: string;           // "2022-07-10"
   rainfall_mm: number;
+  /** Where `rainfall_mm` came from: 'season_mean_2022' from search (a 2022 monsoon
+   *  mean for the panchayat, NOT the chosen date) or 'date_value' after a projection. */
+  rainfall_basis?: 'season_mean_2022' | 'date_value' | string;
   temperature_c: number | null;
   humidity_pct: number | null;
   elevation_m: number | null;
@@ -131,6 +134,76 @@ export const RISK_BG: Record<RiskLevel, string> = {
 // ── Crop advisory (from GET /api/advisory) ──────────────────────────────────
 export type AdvisorySeverity = 'info' | 'watch' | 'warning' | 'alert';
 
+export interface FiredRule {
+  rule_id: string;
+  name: string;
+  condition: string;
+  inputs: Record<string, unknown>;
+  margin_pct?: number | null;
+  flip_hint?: string;
+}
+
+/** One recommended action, with the rule and measured inputs behind it. */
+export interface ActionItem {
+  action: string;
+  risk: string;
+  rule_id: string;
+  /** Engine severity of the rule that produced this action (not the UI tier). */
+  severity: 'none' | 'low' | 'medium' | 'high';
+  evidence: Record<string, unknown>;
+  crop_relevant: boolean;
+  stage_relevant: boolean;
+}
+
+export interface SoilProperty {
+  key: string;
+  label: string;
+  value: number;
+  unit: string;
+}
+
+/** Measured soil properties - never a fabricated "soil type". */
+export interface SoilContext {
+  available: boolean;
+  depth: string | null;
+  properties: SoilProperty[];
+  note: string;
+  crop_detected: boolean;
+  crop_dataset_available: boolean;
+}
+
+/** A data-grounded crop-suitability suggestion, or an explicit insufficiency reason. */
+export interface CropSuitability {
+  available: boolean;
+  reason: string;
+  crop_detected: boolean;
+  crop_dataset_available: boolean;
+  user_selected_crop: string;
+  evidence: SoilProperty[];
+}
+
+/** How the user's crop/stage choice did (or did not) steer the decision. */
+export interface AdvisoryContext {
+  crop: string;
+  stage: string | null;
+  user_selected_crop: string;
+  crop_detected: boolean;
+  crop_dataset_available: boolean;
+  crop_parameters: Record<string, unknown>;
+  crop_sensitive_rules: string[];
+  stage_sensitive_rules: string[];
+  materially_changed: boolean;
+  explanation: string;
+}
+
+/** Decision values split by provenance so evidence can never be blurred. */
+export interface EvidenceGroups {
+  observed: Record<string, unknown>;
+  user_provided: Record<string, unknown>;
+  derived: Record<string, unknown>;
+  not_available: string[];
+}
+
 export interface AdvisoryResponse {
   advisory_text: string;
   severity: AdvisorySeverity;
@@ -145,6 +218,16 @@ export interface AdvisoryResponse {
   disclaimer: string;
   crop: string;
   stage: string;
+  confidence?: number;
+  confidence_reasons?: string[];
+  message_source?: string;
+  fired_rules?: FiredRule[];
+  // "Why this advisory?" - separate from the rainfall-model XAI
+  advisory_context?: AdvisoryContext;
+  action_items?: ActionItem[];
+  soil_context?: SoilContext;
+  crop_suitability?: CropSuitability;
+  evidence_groups?: EvidenceGroups;
   /** What the backend CHECKED before running the rules. `rainfall` is
    *  'verified_against_layer1' when the value we sent matched the stored
    *  Layer-1 field for this Panchayat and date, 'resolved_from_layer1' when the
@@ -180,6 +263,7 @@ export const STAGE_OPTIONS = [
   { value: 'sowing', label: 'Sowing / Planting' },
   { value: 'vegetative', label: 'Vegetative Growth' },
   { value: 'flowering', label: 'Flowering / Anthesis' },
+  { value: 'grain_filling', label: 'Grain Filling' },
   { value: 'ripening', label: 'Ripening / Maturity' },
   { value: 'harvest', label: 'Harvest' },
 ] as const;

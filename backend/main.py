@@ -343,15 +343,27 @@ PHRASE_PROMPT = """You rewrite an agricultural advisory for a farmer in simple, 
 You are given a JSON "trace" that already contains the decision. Do NOT change the decision.
 Rules:
 - Use ONLY facts and numbers that appear in the trace. Never add new numbers, crops, chemicals or dates.
-- Maximum 3 short sentences. Put the most urgent action first.
-- If the trace says severity "none", just say conditions look normal.
+- Never invent soil values, crop facts, or crop-specific recommendations that are not in the
+  supplied context. If a variable is absent from the context, say it was unavailable.
+- Never claim a soil "type" or a crop-suitability result: only the measured soil characteristics
+  shown are known, and the crop is the user's own selection (not detected).
+- Length: at most 5-6 SHORT sentences, and use FEWER when the situation is simple - never pad.
+- Cover, only where the trace supports it: the risk and how serious it is, the single key reason,
+  whether the selected crop/stage matters here, the action to take, and at most one important
+  caution. Put the most urgent action first when the severity is high. Omit anything the trace
+  does not contain.
+- If the trace says severity "none", just say conditions look normal in 1-2 sentences.
+- The recommended actions are given separately as a deterministic list; do not restate every
+  bullet, just summarise the most important one.
 Return ONLY JSON: {"message": "..."}"""
 
 
 async def _phrase_call(model: str, trace: adv.AdvisoryTrace) -> str:
-    payload = {"panchayat": trace.panchayat, "crop": trace.crop, "severity": trace.severity,
-               "advice": trace.headline_en,
-               "why": [f"{r.name}: {r.condition}" for r in trace.rules if r.fired]}
+    payload = {"panchayat": trace.panchayat, "crop": trace.crop, "stage": trace.stage,
+               "severity": trace.severity, "advice": trace.headline_en,
+               "soil": trace.soil, "crop_suitability": trace.crop_suitability,
+               "context": trace.context.model_dump() if trace.context else None,
+               "why": [f"{r.name}: {r.condition} (inputs: {r.inputs})" for r in trace.rules if r.fired]}
     resp = await groq_client.chat.completions.create(
         model=model, temperature=0.2, max_tokens=1500,
         response_format={"type": "json_object"},
@@ -393,6 +405,7 @@ class AdvisoryResponse(BaseModel):
     downscaling_explanation: Optional[str] = None  # in output_language
     trace: adv.AdvisoryTrace                       # full audit trail (English)
     attempts: list[dict] = []
+    action_items: list[dict] = []                  # actions with the evidence that caused them
 
 
 class AdvisoryRequest(BaseModel):
@@ -431,6 +444,7 @@ async def build_advisory(data: adv.PanchayatInput, lang: str) -> AdvisoryRespons
                       "inputs": r.inputs, "margin_pct": r.margin_pct, "flip_hint": r.flip_hint,
                       "reason": rs} for r, rs in zip(fired, reasons)],
         downscaling_explanation=ds, trace=trace, attempts=attempts,
+        action_items=[a.model_dump() for a in adv.action_items_for(trace)],
     )
 
 
@@ -476,7 +490,8 @@ def aux_layers_ctx():
 
 
 CropQ = Literal["general", "rice", "wheat", "cotton", "maize", "pulses", "mustard", "bajra"]
-StageQ = Literal["general", "sowing", "vegetative", "flowering", "ripening", "harvest"]
+StageQ = Literal["general", "sowing", "vegetative", "flowering", "grain_filling",
+                 "ripening", "maturity", "harvest"]
 UI_DISCLAIMER = ("Rule-based prototype advisory. Thresholds are illustrative defaults and have not been "
                  "validated for field use; consult your local agriculture office.")
 
@@ -496,6 +511,13 @@ class AdvisoryUIResponse(BaseModel):
     message_source: str
     fired_rules: list[dict]
     trace: adv.AdvisoryTrace
+    # "Why this advisory?" - deterministic, data-grounded, separate from the
+    # rainfall-model XAI (POST /api/explain):
+    advisory_context: dict = {}      # crop/stage parameters + whether they changed the outcome
+    action_items: list[dict] = []    # each action + the rule and evidence behind it
+    soil_context: dict = {}          # measured soil characteristics (never a fabricated "soil type")
+    crop_suitability: dict = {}      # data-grounded suggestion, or an explicit insufficiency reason
+    evidence_groups: dict = {}       # observed / user_provided / derived / not_available
     # what was CHECKED before the rules ran (see advisory_ui):
     #   rainfall "verified_against_layer1" | "resolved_from_layer1"
     #            | "unverified_no_data_source"
@@ -638,6 +660,11 @@ async def advisory_ui(
         fired_rules=[{"rule_id": r.rule_id, "name": r.name, "condition": r.condition, "inputs": r.inputs,
                       "margin_pct": r.margin_pct, "flip_hint": r.flip_hint} for r in fired],
         trace=trace,
+        advisory_context=trace.context.model_dump() if trace.context else {},
+        action_items=[a.model_dump() for a in adv.action_items_for(trace)],
+        soil_context=trace.soil,
+        crop_suitability=trace.crop_suitability,
+        evidence_groups=trace.evidence_groups,
         verification=verification,
     )
 
@@ -708,28 +735,61 @@ _METHOD_NOTE = {
 }
 
 
+# Detail used for a channel the model DID use but whose display value was not
+# supplied for this request. The factor is still listed: silently dropping it would
+# claim the model used fewer inputs than it did.
+_MODEL_INPUT_NO_VALUE = ("Input used by the model, but its value was not supplied for this request; "
+                         "no effect can be attributed from here.")
+
+# Every channel the deployed model consumes, in pipeline order (meta.channels).
+# ui_facts() emits one factor per channel the request declares, so the panel can
+# never present a subset as if it were the complete input set.
+_CHANNEL_FACTORS = ("imd_rain", "dem", "era5_t2m", "era5_t2m_max", "era5_dewp")
+
+
 def ui_facts(r: UIExplainRequest) -> dict:
-    """Deterministic, auditable part of the explanation. Only channels the model was
-    actually trained on can appear as factors. Weights are heuristic (not SHAP)."""
-    pr, ch = r.prediction, set(r.model.channels or ["imd_rain", "dem", "era5_t2m", "era5_t2m_max", "era5_dewp"])
+    """Deterministic, auditable part of the explanation. One factor is emitted for
+    EVERY channel the model was trained on (from meta.channels), regardless of
+    whether its display value is present. Weights are heuristic (not SHAP)."""
+    pr = r.prediction
+    ch = list(r.model.channels or list(_CHANNEL_FACTORS))
+
+    def has(name: str) -> bool:
+        return name in ch
+
     f: list[UIFactor] = []
-    if "imd_rain" in ch:
+    if has("imd_rain"):
         f.append(UIFactor(factor="IMD coarse rainfall (0.25°)", effect="increases" if pr.rainfall_mm >= 2.5 else "neutral",
-                          weight=0.9, detail="The bilinear-upsampled IMD value is the starting point; the U-Net only "
-                                             "learns a correction on top of it."))
-    if "dem" in ch and pr.elevation_m is not None:
-        hi = pr.elevation_m > 500
-        f.append(UIFactor(factor="Elevation (SRTM DEM)", effect="increases" if hi else "neutral", weight=0.6 if hi else 0.2,
-                          detail=(f"At {pr.elevation_m:g} m, orographic lift on windward slopes tends to add rainfall." if hi
-                                  else f"Terrain is relatively flat ({pr.elevation_m:g} m), so elevation adds little.")))
-    if ("era5_dewp" in ch) and pr.humidity_pct is not None:
-        h = pr.humidity_pct
-        f.append(UIFactor(factor="Moisture (ERA5 dewpoint)", effect="increases" if h > 70 else "decreases" if h < 50 else "neutral",
-                          weight=0.5 if h > 70 else 0.3,
-                          detail=f"Relative humidity of {h:g}% is used as a proxy for available moisture."))
-    if ({"era5_t2m", "era5_t2m_max"} & ch) and pr.temperature_c is not None:
-        f.append(UIFactor(factor="Temperature (ERA5 T2m)", effect="neutral", weight=0.2,
-                          detail=f"Mean temperature of {pr.temperature_c:g}°C gives the model thermal context for convection."))
+                          weight=0.9, detail="The bilinear-upsampled IMD value is the residual baseline; the U-Net only "
+                                             "learns a local correction on top of it."))
+    if has("dem"):
+        if pr.elevation_m is None:
+            f.append(UIFactor(factor="Elevation (SRTM DEM)", effect="neutral", weight=0.3,
+                              detail=_MODEL_INPUT_NO_VALUE))
+        else:
+            hi = pr.elevation_m > 500
+            f.append(UIFactor(factor="Elevation (SRTM DEM)", effect="increases" if hi else "neutral",
+                              weight=0.6 if hi else 0.2,
+                              detail=(f"At {pr.elevation_m:g} m, orographic lift on windward slopes tends to add rainfall." if hi
+                                      else f"Terrain is relatively flat ({pr.elevation_m:g} m), so elevation adds little.")))
+    if has("era5_t2m"):
+        f.append(UIFactor(factor="Temperature (ERA5 T2m, daily mean)", effect="neutral", weight=0.2,
+                          detail=(f"Mean temperature of {pr.temperature_c:g}°C gives the model thermal context for convection."
+                                  if pr.temperature_c is not None else _MODEL_INPUT_NO_VALUE)))
+    if has("era5_t2m_max"):
+        f.append(UIFactor(factor="Temperature (ERA5 T2m, daily maximum)", effect="neutral", weight=0.2,
+                          detail=("The daily maximum temperature is a separate model input; its value is not "
+                                  "carried in this request.")))
+    if has("era5_dewp"):
+        if pr.humidity_pct is None:
+            f.append(UIFactor(factor="Moisture (ERA5 dewpoint)", effect="neutral", weight=0.4,
+                              detail=_MODEL_INPUT_NO_VALUE))
+        else:
+            h = pr.humidity_pct
+            f.append(UIFactor(factor="Moisture (ERA5 dewpoint)",
+                              effect="increases" if h > 70 else "decreases" if h < 50 else "neutral",
+                              weight=0.5 if h > 70 else 0.3,
+                              detail=f"Relative humidity of {h:g}% is used as a proxy for available moisture."))
     conf = "low" if r.mapping.method == "nearest_fallback" else "high" if r.mapping.n_cells > 1 else "medium"
     n = r.mapping.n_cells
     text = (f"The model starts from IMD's 28 km rainfall, upsamples it to a 5 km grid, and then a U-Net adds a local "
@@ -747,9 +807,12 @@ EXPLAIN_PROMPT = """You explain a downscaled rainfall estimate to a non-expert.
 You get JSON "facts" that are already correct. Rewrite the explanation clearly in plain English.
 Rules:
 - Use ONLY facts and numbers present in the facts (or in the user's question). Never invent numbers, causes or sources.
+- Base the explanation ONLY on the model's actual inputs and provenance listed in the facts (the
+  channels and their supplied values). Do not describe an input that is not in the facts, and if a
+  listed input has no value, say it was not available rather than inventing one.
 - The factor weights are heuristic, not measured attributions; do not present them as exact.
 - If a question is given, answer it using only the facts; if the facts cannot answer it, say so plainly.
-- Explanation: at most 4 sentences. Answer: at most 3 sentences, or null if no question.
+- Explanation: 3-4 SHORT sentences. Answer: at most 3 short sentences, or null if no question.
 Return ONLY JSON: {"explanation": "...", "answer": "..." or null}"""
 
 

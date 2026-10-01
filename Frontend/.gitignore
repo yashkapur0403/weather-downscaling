@@ -13,7 +13,9 @@ dist
 out
 *.local
 tsconfig.tsbuildinfo
-.freebuff
+# Written by `next dev` (coding-agent instruction files); keep them out of the repo
+AGENTS.md
+CLAUDE.md
 
 # Editor directories and files
 .vscode/*
