@@ -288,7 +288,7 @@ every row at every threshold, so any single number here can be audited.
 * **Reproducible from committed artefacts, in minutes:** `python scripts/ablation.py`
   rebuilds this table on CPU (~80 s) and re-applies the same validation-only
   selection rule; `python generate_pred.py` rebuilds the served grid and its
-  manifest; `python -m pytest backend/tests` runs 69 tests including the
+  manifest; `python -m pytest backend/tests` runs 90 tests including the
   artifact-consistency contract.
 
 ### 4.4 The benchmark it is scored against (row A)
@@ -659,7 +659,11 @@ evidence, all deterministic and returned by `GET /api/advisory`:
   weather (`materially_changed`); when it changes nothing the trace says so rather
   than pretending the advice was crop-specific.
 * `action_items` — every recommended action attributed to the rule that produced
-  it, with that rule's measured `inputs` as evidence (`evidence → action`).
+  it, with that rule's measured `inputs` as evidence (`evidence → action`). Action
+  wording is context-sensitive: the heat-stress irrigation note is offered only
+  when the soil is dry, so it cannot contradict the heavy-rain advice to hold
+  irrigation, and the water-stress wording for low NDVI appears only when
+  rainfall is also low.
 * `soil_context` — the **measured** SoilGrids characteristics actually retrieved
   (clay/sand g/kg, pH, organic carbon, bulk density), never a fabricated "soil
 type": the dataset encodes no classification, and the text says so.
@@ -688,7 +692,10 @@ inputs support.
 * **Groq** is called through an **ordered multi-model chain** with cooldowns: if a
   model fails or is rate-limited the next one is tried, and the attempts are
   returned in the response. It receives the deterministic trace and returns
-  prose — it cannot add, remove or re-rank a rule.
+  prose — it cannot add, remove or re-rank a rule. Message length is capped
+  (advisory: at most 5–6 short sentences, fewer when the situation is simple;
+  estimate explanation: 3–4), and the recommended-action list is never rewritten
+  by the model.
 * **Faithfulness guard:** a rewrite is accepted **only if it introduces no number
   absent from the trace** (`is_faithful`: every number in the message must already
   appear in the rule evidence). A rephrase that invents a figure is discarded and
@@ -739,8 +746,10 @@ the rainfall card and map for a chosen date, the advisory panel (risk chip, **ev
 expandable **"Why this advisory?"** drawer with the crop/stage context, the
 measured soil characteristics, the triggered rules and the observed / user-provided
 / derived / not-available evidence split), the XAI panel (**"Why this number?"** —
-which model input drove the rainfall, which rule fired, by how much it missed the
-threshold, and what would flip it) and a model card fed by `/api/metrics`.
+one entry per model input channel, so the panel can never present a subset of the
+model's inputs as if it were the complete set — which model input drove the
+rainfall, which rule fired, by how much it missed the threshold, and what would
+flip it) and a model card fed by `/api/metrics`.
 
 The frontend holds **no second copy of the rules**. When the backend refuses
 (409/422) the panel shows an explicit *"Advisory withheld"* with the reason, and if

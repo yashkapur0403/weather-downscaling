@@ -7,7 +7,7 @@ cd backend
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env                                   # optional: add GROQ_API_KEY / SARVAM_API_KEY
-python -m pytest -q tests                              # 69 tests, no network or keys needed
+python -m pytest -q tests                              # 90 tests, no network or keys needed
 uvicorn app:app --reload --port 8000
 ```
 Frontend: `NEXT_PUBLIC_API_URL=http://localhost:8000` (already the default). The
@@ -53,6 +53,27 @@ data-driven rules:
 
 The looked-up values are returned in `evidence.aux` and inside each rule's `inputs`.
 
+### Advisory context and evidence
+
+`GET /api/advisory` (and each entry of `POST /api/advisory/block`) returns the explanation beside the
+decision:
+
+* `advisory_context` — the crop parameters applied and `materially_changed`, measured by re-running
+  the rules with `crop="general"` and no stage on the same weather, so the response states whether
+  the crop/stage choice actually changed the outcome.
+* `action_items` — each recommended action with the rule that produced it and that rule's measured
+  `inputs`.
+* `soil_context` — the measured SoilGrids characteristics actually retrieved (clay/sand g/kg, pH,
+  organic carbon, bulk density); no soil "type" is claimed.
+* `crop_suitability` — a data-grounded suggestion or an explicit insufficiency message; this
+  deployment has no crop-type or soil-classification dataset.
+* `evidence_groups` — the decision values split into `observed` / `user_provided` / `derived` /
+  `not_available`.
+
+`crop_detected` is always `false` — the crop is the caller's selection. All stages the engine knows
+are accepted on `GET /api/advisory` (`general`, `sowing`, `vegetative`, `flowering`, `grain_filling`,
+`ripening`, `maturity`, `harvest`).
+
 ### Why the advisory verifies the rainfall
 
 The rules are only meaningful if they run on the Layer-1 value belonging to the Panchayat and date
@@ -71,7 +92,7 @@ that were asked about. `GET /api/advisory` therefore resolves that value itself 
 | no data layer mounted (text-only) | `rainfall_mm` required; 200 is labelled `unverified_no_data_source` |
 
 `data_date` is the date that was verified, and the response carries a `verification` block (including
-the source string, the fine-grid cell and whether aux was resolved) so a caller — or a judge — can
+the source string, the fine-grid cell and whether aux was resolved) so a caller — or a reviewer — can
 see exactly what was checked. Temperature and humidity remain **caller-supplied** and are labelled as
 such. Use `POST /api/advisory` for deliberate what-if runs that are not tied to the stored field.
 
