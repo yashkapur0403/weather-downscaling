@@ -38,7 +38,23 @@ templates). `backend/README.md` documents every route and what data backs it.
   and Panchayat mapping produced the final CSV, summary, GeoJSON, map, and QC
   artifacts in `outputs/layer2/`. The run mapped 86,103 of 87,735 Panchayats
   (98.1% coverage); 1,632 coastal/off-grid Panchayats remain unmapped.
-  RAG / dashboards are not built.
+  No retrieval-augmented (RAG) search layer is included.
+
+**What the product delivers (user view):**
+
+| Capability | Where | State |
+|---|---|---|
+| Panchayat-level daily rainfall, verified against the Layer-1 field | `POST /auth/`, `GET /api/advisory` | live |
+| Panchayat search with district/block disambiguation | dashboard, `GET /api/panchayats`, `GET /api/geocode` | live |
+| Rainfall card + map for a chosen date | dashboard (`Frontend/`) | live |
+| Crop + growth-stage advisory: risk band, headline, action list | `GET`/`POST /api/advisory`, `POST /api/advisory/block` | live |
+| "Why this advisory?" — triggered rules, per-action evidence, measured soil characteristics, observed/user/derived/not-available split | advisory response | live |
+| "Why this number?" — one entry per model input channel, rule margins, provenance | `POST /api/explain`, `GET /api/metrics` | live |
+| Advisory withheld rather than guessed when rainfall cannot be verified (409/422) | backend + dashboard | live |
+| Runs with no API keys (deterministic text); Groq rephrasing and Sarvam translation optional | `backend/.env.example` | live |
+| Multilingual advisory text (`lang=hi-IN` and others) | `POST /api/translate` | with key |
+
+Evaluation artefacts: ablation table A–F + EF and the provenance manifest (`outputs/metrics/`), the served grid (`outputs/prediction_test.npz`), 90 backend tests, and the recorded `qa/` evidence.
 
 ## 0. File map — repository contents and their consumers
 
@@ -324,10 +340,8 @@ shipped product; they are kept so the methodology trail stays visible.
 * **MAE vs weighted loss trade-off is real:** MAE training minimizes mean
   error but smooths heavy rain; the weighted loss trades ~0.7 mm MAE for far
   better heavy-rain detection (relevant for agriculture).
-* The table above is the historical **pilot** run (Western Ghats, 2019–2022),
-  kept so the methodology trail stays visible. The Deccan numbers that ship are
-  the box at the top of this section; `outputs/metrics/ablation_summary.md` is
-  the artefact of record.
+* The Deccan numbers that ship are in §4.2; `outputs/metrics/ablation_summary.md`
+  is the artefact of record.
 
 ## 5. How to run everything
 
@@ -404,7 +418,7 @@ weather-downscaling/
 └── README.md
 ```
 
-## 7. Outputs of the dataset build (what exists NOW)
+## 7. Dataset-build outputs
 
 1. `data/processed/X/Y/M_{train,val,test}.npy` + `meta.json` — provenance, ROI,
    dates (610), split, grid, land-mask semantics, normalization stats
@@ -431,16 +445,13 @@ weather-downscaling/
    training targets (M=0). The 6 fractions do not sum to 1 in the 104 cells
    containing wetland (class 90), which has no fraction column — documented in
    the data dictionary.
-6. **Soil moisture — optional, pending (quota-blocked).** The builder
-   (`build_soilmoisture` in `build_aux.py`) fetches daily ERA5-Land volumetric
-   water (0–7 cm; 7–28 cm optional) on the SAME ERA5 lattice as the era5_*
-   channels, cached per (batch, year), and refuses to write an incomplete
-   file. The free Open-Meteo **daily** request limit was exhausted before
-   materialization (one 64-loc × 122-day request ≈ 7.8k weight units; ~34
-   such requests needed). **Resume on any later day** with:
-   `python scripts/build_aux.py --region deccan --skip-admin --skip-soil --skip-ndvi --skip-lulc`
-   — repeat across daily resets until it prints `done`; caches make each
-   attempt additive. Layer-3 agro-advisory input, not a U-Net channel.
+6. **Soil moisture — optional, pending (Open-Meteo daily quota).** `build_soilmoisture`
+   in `build_aux.py` fetches daily ERA5-Land volumetric water (0–7 cm) on the same
+   ERA5 lattice as the era5_* channels, cached per (batch, year), and refuses to write
+   an incomplete file; the free daily request limit was exhausted before
+   materialization. Resume with `python scripts/build_aux.py --region deccan
+   --skip-admin --skip-soil --skip-ndvi --skip-lulc` across daily resets (caches are
+   additive). A Layer-3 agro-advisory input, not a U-Net channel.
 7. **Wind:** the raw ERA5 cache now contains clean 10 m wind for ALL 610 days
    (the 2018 fetch was repaired in place; land variables bit-identical). It is
    still not a model channel: the frozen dataset was preprocessed with the
