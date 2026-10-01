@@ -18,7 +18,7 @@ cd Frontend && npm install && npm run dev          # http://localhost:3000
 The backend runs with **no API keys** (advisory and explain fall back to deterministic
 templates). `backend/README.md` documents every route and what data backs it.
 
-**Current status:**
+**Project status:**
 
 * ✅ **Layer-1 dataset complete for the Deccan region** (`region="deccan"`):
   5 monsoons (2018–2022), 610 days, 47,250 land cells, model-ready
