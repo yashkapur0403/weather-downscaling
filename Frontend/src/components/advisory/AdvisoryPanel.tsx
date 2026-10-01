@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchAdvisory, ApiError } from '../../api/backend';
 import type { Panchayat, AdvisoryResponse, CropType, CropStage, LangCode } from '../../types';
 import { SEVERITY_STYLE, CROP_OPTIONS, STAGE_OPTIONS, LANGUAGE_OPTIONS } from '../../types';
-import { Sprout, AlertTriangle, CheckCircle, Info, Loader2, ChevronDown, Languages } from 'lucide-react';
+import { Sprout, AlertTriangle, CheckCircle, Info, Loader2, Languages } from 'lucide-react';
+import { Dropdown } from '../ui/Dropdown';
 
 interface AdvisoryPanelProps {
   selected: Panchayat | null;
@@ -101,48 +102,17 @@ export function AdvisoryPanel({ selected, isProjectionRun }: AdvisoryPanelProps)
           <span className="label-sm">Crop Advisory</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Crop selector */}
-          <div className="relative">
-            <select
-              className="advisory-select"
-              value={crop}
-              onChange={e => setCrop(e.target.value as CropType)}
-            >
-              {CROP_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: 'var(--muted)' }} />
-          </div>
-          {/* Stage selector */}
-          <div className="relative">
-            <select
-              className="advisory-select"
-              value={stage}
-              onChange={e => setStage(e.target.value as CropStage)}
-            >
-              {STAGE_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: 'var(--muted)' }} />
-          </div>
-          {/* Regional language selector — translated server-side via Sarvam AI */}
-          <div className="relative flex items-center">
-            <Languages className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: 'var(--muted)' }} />
-            <select
-              className="advisory-select"
-              style={{ paddingLeft: '1.35rem' }}
-              value={lang}
-              onChange={e => setLang(e.target.value as LangCode)}
-              title="Translate this advisory into a regional language (Sarvam AI)"
-            >
-              {LANGUAGE_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: 'var(--muted)' }} />
-          </div>
+          <Dropdown value={crop} options={CROP_OPTIONS} onChange={v => setCrop(v as CropType)} />
+          <Dropdown value={stage} options={STAGE_OPTIONS} onChange={v => setStage(v as CropStage)} />
+          {/* Regional language selector, translated server-side via Sarvam AI */}
+          <Dropdown
+            value={lang}
+            options={LANGUAGE_OPTIONS}
+            onChange={v => setLang(v as LangCode)}
+            icon={<Languages className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--muted)' }} />}
+            title="Translate this advisory into a regional language (Sarvam AI)"
+            align="right"
+          />
         </div>
       </div>
 

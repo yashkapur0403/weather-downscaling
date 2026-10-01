@@ -13,13 +13,13 @@ const STEPS = [
     n: '02',
     icon: <Cpu className="w-5 h-5" />,
     title: 'U-Net Residual Correction',
-    desc: 'A ~150k-param residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context.',
+    desc: 'A 117,329-parameter residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context.',
   },
   {
     n: '03',
     icon: <Map className="w-5 h-5" />,
     title: 'Panchayat Aggregation',
-    desc: 'The 0.05° field is spatially joined to 86,103 LGD Gram Panchayat polygons using area-weighted averaging.',
+    desc: 'The 0.05° field is spatially joined to 87,735 LGD Gram Panchayat polygons using area-weighted averaging.',
   },
   {
     n: '04',
@@ -69,7 +69,7 @@ export function HowItWorksModal({ onClose }: Props) {
         {/* Footer */}
         <div className="px-6 py-4 border-t" style={{ borderColor: 'var(--border)' }}>
           <p className="text-[0.65rem] text-center" style={{ color: 'var(--muted)' }}>
-            IMD rainfall downscaled from 28 km to 5 km using terrain and atmospheric context. Search 86,103 Gram Panchayats across 15 Indian states.
+            IMD rainfall downscaled from 28 km to 5 km using terrain and atmospheric context. Search 87,735 Gram Panchayats across 15 Indian states.
           </p>
         </div>
       </div>

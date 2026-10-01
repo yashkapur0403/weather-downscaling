@@ -53,7 +53,7 @@ function buildRequest(p: Panchayat, metrics: ModelMetrics | null, question?: str
       channels: metrics?.channels ?? DEFAULT_CHANNELS,
       test_mae_mm: metrics?.selected_model.test_mae_mm ?? 6.45,
       baseline_mae_mm: metrics?.baseline.test_mae_mm ?? 7.67,
-      mae_improvement_pct: metrics?.mae_improvement_pct ?? 15.9,
+      mae_improvement_pct: metrics?.mae_improvement_pct ?? 12.2,
       reference_product: metrics?.reference_product ?? 'CHIRPS v2.0',
     },
     question: question ?? null,
@@ -227,7 +227,7 @@ export function XAIPanel({ selected, metrics, isProjectionRun }: XAIPanelProps) 
         </div>
       </div>
 
-      {result && !isLLM && result.fallback_reason && (
+      {result && !isLLM && result.fallback_reason && !result.fallback_reason.includes("GROQ_API_KEY is not set") && (
         <p className="px-5 pt-3 text-[0.6rem] font-mono" style={{ color: 'var(--muted)' }}>
           Why rules: {result.fallback_reason}
         </p>

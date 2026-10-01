@@ -8,12 +8,13 @@ import { queryWeather, fetchMetrics, geocodePanchayat } from '../api/backend';
 import type { Panchayat, ModelMetrics, QueryRequest, QueryResponse } from '../types';
 import { AdvisoryPanel } from '../components/advisory/AdvisoryPanel';
 import { XAIPanel } from '../components/xai/XAIPanel';
+import { ChatWidget } from '../components/chat/ChatWidget';
 import { Database, Cpu, Map, Brain, Info } from 'lucide-react';
 
 const HOW_IT_WORKS_STEPS = [
   { n: '01', icon: <Database className="w-5 h-5" />, title: 'IMD Coarse Input', desc: 'Daily rainfall from IMD at 0.25° (~28 km) is bilinearly upsampled to 0.05° as the starting baseline.' },
-  { n: '02', icon: <Cpu className="w-5 h-5" />, title: 'U-Net Residual Correction', desc: 'A ~150k-param residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context.' },
-  { n: '03', icon: <Map className="w-5 h-5" />, title: 'Panchayat Aggregation', desc: 'The 0.05° field is spatially joined to 86,103 LGD Gram Panchayat polygons using area-weighted averaging.' },
+  { n: '02', icon: <Cpu className="w-5 h-5" />, title: 'U-Net Residual Correction', desc: 'A 117,329-parameter residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context.' },
+  { n: '03', icon: <Map className="w-5 h-5" />, title: 'Panchayat Aggregation', desc: 'The 0.05° field is spatially joined to 87,735 LGD Gram Panchayat polygons using area-weighted averaging.' },
   { n: '04', icon: <Brain className="w-5 h-5" />, title: 'Explainable AI Output', desc: 'Each prediction is fully traceable: model inputs, mapping method, and performance metrics are shown alongside the value.' },
 ];
 
@@ -222,9 +223,9 @@ export function HomePage() {
               <div className="mt-4 p-4" style={{ background: 'var(--raised)', border: '1px solid var(--hairline)', borderRadius: '4px' }}>
                 <p className="label-sm mb-2">Model Details</p>
                 <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: 'var(--text-2)' }}>
-                  <p>Parameters: ~150k</p>
+                  <p>Parameters: 117,329</p>
                   <p>Architecture: Residual U-Net</p>
-                  <p>Temporal split: 2019–20 train</p>
+                  <p>Temporal split: 2018–20 train</p>
                   <p>Val: 2021 · Test: 2022</p>
                   <p>Channels: IMD rain + DEM + ERA5</p>
                   <p>Reference: CHIRPS v2.0</p>
@@ -246,10 +247,12 @@ export function HomePage() {
         </div>
       </section>
 
+      <ChatWidget selected={selected} />
+
       {/* Footer */}
       <footer className="py-8 text-center" style={{ borderTop: '1px solid var(--hairline)' }}>
         <p className="text-[0.6rem] font-mono uppercase tracking-widest" style={{ color: 'var(--muted)', opacity: 0.5 }}>
-          Obsidian · 15 states · 86,103 panchayats · 2022-07-10 dataset
+          Obsidian · 15 states · 87,735 panchayats · Multi-lingual support · Agro-based insights
         </p>
       </footer>
     </div>

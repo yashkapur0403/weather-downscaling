@@ -100,9 +100,9 @@ export function ModelModal({ onClose }: Props) {
               <div className="p-4 rounded-lg" style={{ background: 'var(--bg)' }}>
                 <p className="label-sm mb-2">Model Details</p>
                 <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: 'var(--text-2)' }}>
-                  <p>Parameters: ~150k</p>
+                  <p>Parameters: 117,329</p>
                   <p>Architecture: Residual U-Net</p>
-                  <p>Temporal split: 2019–20 train</p>
+                  <p>Temporal split: 2018–20 train</p>
                   <p>Val: 2021 · Test: 2022</p>
                   <p>Channels: IMD rain + DEM + ERA5</p>
                   <p>Reference: CHIRPS v2.0</p>

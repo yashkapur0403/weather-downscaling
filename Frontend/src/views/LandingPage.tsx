@@ -17,7 +17,6 @@ import {
   CloudRain,
   Activity,
   GitBranch,
-  Droplets,
   Info,
   Search,
   Sprout,
@@ -31,7 +30,7 @@ const HERO_STATS = [
   { label: 'Output grid', value: '0.05°', note: '~5 km', icon: <Map className="w-4 h-4" /> },
   { label: 'Monsoon days', value: '610', note: 'Jun–Sep 2018–22', icon: <CloudRain className="w-4 h-4" /> },
   { label: 'Land cells', value: '47,250', note: 'fine grid', icon: <Layers className="w-4 h-4" /> },
-  { label: 'Parameters', value: '~150k', note: 'residual U-Net', icon: <Cpu className="w-4 h-4" /> },
+  { label: 'Parameters', value: '117,329', note: 'residual U-Net', icon: <Cpu className="w-4 h-4" /> },
 ];
 
 /* ── The resolution ladder ───────────────────────────────────────────────── */
@@ -44,9 +43,9 @@ const LADDER = [
 /* ── Pipeline steps ──────────────────────────────────────────────────────── */
 const PIPELINE = [
   { n: '01', icon: <Database className="w-5 h-5" />, title: 'IMD Coarse Input',        desc: 'Daily rainfall from IMD at 0.25° (~28 km) is bilinearly upsampled to 0.05° as the starting baseline.' },
-  { n: '02', icon: <Cpu       className="w-5 h-5" />, title: 'U-Net Residual Correction', desc: 'A ~150k-param residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context.' },
-  { n: '03', icon: <Map       className="w-5 h-5" />, title: 'Panchayat Aggregation',   desc: 'The 0.05° field is spatially joined to 86,103 LGD Gram Panchayat polygons using area-weighted averaging.' },
-  { n: '04', icon: <Brain     className="w-5 h-5" />, title: 'Explainable AI Output',   desc: 'Each prediction is fully traceable: model inputs, mapping method, and performance metrics are shown alongside the value.' },
+  { n: '02', icon: <Cpu       className="w-5 h-5" />, title: 'U-Net Residual Correction', desc: 'A 117,329-parameter residual U-Net learns the spatial correction using SRTM terrain elevation and ERA5-Land atmospheric context. The deployed model blends two checkpoints.' },
+  { n: '03', icon: <Map       className="w-5 h-5" />, title: 'Panchayat Aggregation',   desc: 'The 0.05° field is spatially joined to 87,735 LGD Gram Panchayat polygons using area-weighted averaging.' },
+  { n: '04', icon: <Brain     className="w-5 h-5" />, title: 'Explained Advisory',      desc: 'Nine rule checks turn the rainfall into a crop advisory. Each shows the inputs it read, how close it was to its threshold and what would change the answer.' },
 ];
 
 /* ── Data sources ────────────────────────────────────────────────────────── */
@@ -63,49 +62,56 @@ const SOURCES = [
 ];
 
 /* ── Ablation results ────────────────────────────────────────────────────── */
-const RESULTS = [
-  { model: 'A — Bilinear IMD baseline',       valMae: '6.72', valCorr: '0.257', testMae: '7.67',  testCorr: '0.304', f1: '0.217' },
-  { model: 'B2 — Bias-corrected bilinear',    valMae: '9.69', valCorr: '0.400', testMae: '10.15', testCorr: '0.436', f1: '0.365', flagged: true },
-  { model: 'B — U-Net, rainfall only',        valMae: '5.35', valCorr: '0.283', testMae: '6.63',  testCorr: '0.304', f1: '0.055' },
-  { model: 'C — U-Net + DEM',                 valMae: '5.39', valCorr: '0.289', testMae: '6.58',  testCorr: '0.314', f1: '0.061' },
-  { model: 'Cw — U-Net + DEM, weighted loss', valMae: '6.04', valCorr: '0.372', testMae: '6.91',  testCorr: '0.419', f1: '0.312', flagged: true },
-  { model: 'D — U-Net + DEM + ERA5-Land',     valMae: '5.41', valCorr: '0.331', testMae: '6.45',  testCorr: '0.376', f1: '0.146', selected: true },
+const RESULTS: {
+  model: string; valMae: string; valRmse: string; valCorr: string;
+  testMae: string; testRmse: string; testCorr: string;
+  f10: string; f25: string; f50: string; flagged?: boolean; selected?: boolean;
+}[] = [
+  { model: 'A — Bilinear IMD baseline (no learning)',   valMae: '8.55',  valRmse: '16.33', valCorr: '0.288', testMae: '9.60',  testRmse: '18.18', testCorr: '0.385', f10: '0.477', f25: '0.343', f50: '0.234' },
+  { model: 'B2 — Bias-corrected bilinear',              valMae: '12.13', valRmse: '18.07', valCorr: '0.343', testMae: '12.75', testRmse: '19.45', testCorr: '0.427', f10: '0.546', f25: '0.398', f50: '0.271', flagged: true },
+  { model: 'B — U-Net, rainfall only',                  valMae: '7.13',  valRmse: '14.52', valCorr: '0.293', testMae: '8.51',  testRmse: '16.93', testCorr: '0.396', f10: '0.281', f25: '0.226', f50: '0.115' },
+  { model: 'C — U-Net + DEM',                           valMae: '7.04',  valRmse: '14.16', valCorr: '0.318', testMae: '8.36',  testRmse: '16.50', testCorr: '0.419', f10: '0.332', f25: '0.231', f50: '0.104' },
+  { model: 'Cw — U-Net + DEM, weighted loss',           valMae: '11.40', valRmse: '18.80', valCorr: '0.226', testMae: '12.27', testRmse: '20.11', testCorr: '0.287', f10: '0.440', f25: '0.305', f50: '0.188', flagged: true },
+  { model: 'D — U-Net + DEM + ERA5-Land',               valMae: '6.93',  valRmse: '13.79', valCorr: '0.346', testMae: '8.17',  testRmse: '16.01', testCorr: '0.446', f10: '0.393', f25: '0.281', f50: '0.015' },
+  { model: 'E — D + heavy-rain-weighted loss',          valMae: '7.44',  valRmse: '12.82', valCorr: '0.460', testMae: '8.21',  testRmse: '14.57', testCorr: '0.518', f10: '0.602', f25: '0.425', f50: '0.129' },
+  { model: 'F — D + ≥50 mm-weighted loss',              valMae: '8.64',  valRmse: '15.67', valCorr: '0.449', testMae: '9.03',  testRmse: '16.53', testCorr: '0.510', f10: '0.584', f25: '0.445', f50: '0.320' },
+  { model: 'EF — E + F ensemble (E weight 0.5)',        valMae: '7.88',  valRmse: '13.71', valCorr: '0.466', testMae: '8.43',  testRmse: '15.00', testCorr: '0.527', f10: '0.601', f25: '0.442', f50: '0.284', selected: true },
 ];
 
 /* ── Key numbers strip ───────────────────────────────────────────────────── */
 const KEY_NUMBERS = [
   { value: '28 → 5 km', label: 'Resolution gain',   note: '0.25° → 0.05°' },
-  { value: '86,103',    label: 'Panchayats mapped', note: '98.1% of 87,735' },
+  { value: '87,735',    label: 'Panchayats mapped', note: 'every one in the region' },
   { value: '15',        label: 'States covered',    note: 'Deccan region' },
   { value: '610',       label: 'Monsoon days',      note: 'Jun–Sep, 2018–22' },
-  { value: '~150k',     label: 'Parameters',        note: 'residual U-Net' },
-  { value: '−15.9%',    label: 'MAE vs baseline',   note: '2022 test season' },
+  { value: '117,329',   label: 'Parameters',        note: 'residual U-Net' },
+  { value: '−12.2%',    label: 'MAE vs baseline',   note: '2022 test season' },
 ];
 
 /* ── Why 28 km is not enough ─────────────────────────────────────────────── */
 const PROBLEM = [
   { big: '1 value',  title: 'One number per ~28 km cell', body: "IMD's operational grid gives a single rainfall value for an area far larger than most villages. Hills, valleys and rain shadows are averaged away." },
   { big: '25 values', title: 'Inside the same area',       body: 'At 0.05° that one cell splits into about 25 fine cells, so a windward slope and a leeward valley can finally get different estimates.' },
-  { big: '86,103',   title: 'Panchayat-level answers',     body: 'Fine cells are joined to LGD boundaries, so a farmer or officer searches by Gram Panchayat instead of by grid coordinates.' },
+  { big: '87,735',   title: 'Panchayat-level answers',     body: 'Fine cells are joined to LGD boundaries, so a farmer or officer searches by Gram Panchayat instead of by grid coordinates.' },
 ];
 
 /* ── Panchayat mapping methods (Layer 2) ─────────────────────────────────── */
 const MAPPING_METHODS = [
   { title: 'Direct grid',      tag: 'Highest confidence', body: 'Fine-cell centres fall inside the panchayat polygon, so the value is read straight from those cells.' },
   { title: 'Area-weighted',    tag: 'Small polygons',     body: 'For small panchayats, a weighted average of every overlapping 0.05° cell, weighted by overlap area.' },
-  { title: 'Nearest fallback', tag: 'Lower confidence',   body: 'Where no cell overlaps, the nearest cell centroid (within 15 km) is used and the value is flagged.' },
+  { title: 'Nearest fallback', tag: 'Lower confidence',   body: 'Where no cell overlaps, the nearest cell centroid (within 20 km) is used and the value is flagged.' },
 ];
 
 const COVERAGE = [
   { value: '87,735', label: 'Panchayats in region' },
-  { value: '86,103', label: 'Mapped' },
-  { value: '98.1%',  label: 'Coverage' },
+  { value: '87,735', label: 'Mapped' },
+  { value: '100%',   label: 'Coverage' },
   { value: '122',    label: 'Days, 2022 monsoon' },
 ];
 
 /* ── What the dashboard does ─────────────────────────────────────────────── */
 const DASH_FEATURES = [
-  { icon: <Search    className="w-5 h-5" />, title: 'Find a panchayat', body: 'Search by name, block, district or state across 86,103 Gram Panchayats.' },
+  { icon: <Search    className="w-5 h-5" />, title: 'Find a panchayat', body: 'Search by name, block, district or state across 87,735 Gram Panchayats.' },
   { icon: <CloudRain className="w-5 h-5" />, title: 'Downscale',        body: 'Get the 5 km rainfall estimate with temperature, humidity and elevation for that place.' },
   { icon: <Sprout    className="w-5 h-5" />, title: 'Field advisory',   body: 'Crop- and growth-stage-specific guidance drawn from the rainfall estimate.' },
 ];
@@ -114,7 +120,7 @@ const DASH_FEATURES = [
 const XAI_PARTS = [
   { title: 'Summary',         body: 'One sentence stating the estimate for the place and date.' },
   { title: 'What drove it',   body: 'IMD rainfall, terrain, moisture and temperature, each marked as raising, lowering or barely changing the value.' },
-  { title: 'Confidence',      body: 'Low, medium or high, tied to how the panchayat was mapped (direct, area-weighted or nearest fallback).' },
+  { title: 'Confidence',      body: 'Scored from which inputs actually arrived, with every deduction listed. It never claims more than the data supports.' },
   { title: 'Ask a follow-up', body: 'Type a question such as "why is it higher than nearby areas?" and get an answer grounded in the same inputs.' },
 ];
 
@@ -122,9 +128,9 @@ const XAI_PARTS = [
 const LIMITATIONS = [
   { title: 'Not a forecast',        body: 'It refines existing coarse rainfall. It does not predict future weather.' },
   { title: 'Reference, not truth',  body: 'Scored against CHIRPS v2.0. IMD and CHIRPS disagree at daily scale, so part of every error is their disagreement.' },
-  { title: 'Pilot-scale evidence',  body: 'Reported metrics come from the Western Ghats pilot; Deccan-wide training is still pending.' },
+  { title: 'Coastal gaps',          body: '3,389 panchayats sit on coastal cells the land mask excludes. They get no value rather than an invented one.' },
   { title: 'Monsoon only',          body: 'June–September data only. There is nothing for the winter season.' },
-  { title: 'Heavy rain is hard',    body: 'MAE-trained models under-detect ≥25 mm days, and every value is a single deterministic estimate, not a probability range.' },
+  { title: 'Extreme rain is hard',  body: 'The deployed model beats the baseline at every threshold, but days above 100 mm are still largely missed. Every value is a single estimate, not a probability range.' },
 ];
 
 /* ── FAQ ─────────────────────────────────────────────────────────────────── */
@@ -174,7 +180,7 @@ const FAQ: { q: string; a: string[] }[] = [
     q: 'How is the data split between training and testing?',
     a: [
       'Purely by time, with no leakage: training uses 2018 + 2019 + 2020 (366 days), validation uses 2021 (122 days) and testing uses 2022 (122 days). Normalization statistics are computed from the training years only.',
-      'Model selection uses the lowest validation MAE, where rows within 0.1 mm are treated as tied and the tie is broken by validation correlation. The test set is never used for tuning or model selection.',
+      'Model selection uses the lowest validation MAE, where rows within 0.75 mm are treated as tied and the tie is broken by validation F1 at 25 mm. That rule picked the E + F ensemble. The test set is never used for tuning or model selection.',
     ],
   },
   {
@@ -187,8 +193,8 @@ const FAQ: { q: string; a: string[] }[] = [
   {
     q: 'Why is the model so small, and why is there no uncertainty estimate?',
     a: [
-      'The residual U-Net is deliberately small at ~150,000 parameters so it stays reproducible and runnable on modest hardware. Two honest consequences follow.',
-      'Heavy rainfall remains hard for MAE-trained models; the heavy-rain-weighted loss variant trades roughly 0.7 mm of MAE for far better detection of ≥25 mm events, which is the more relevant trade for agriculture. And there is currently no probabilistic or uncertainty output — every value is a single deterministic estimate.',
+      'The residual U-Net is deliberately small at 117,329 parameters so it stays reproducible and runnable on modest hardware. Two honest consequences follow.',
+      'Heavy rainfall remains hard for MAE-trained models. The deployed ensemble blends a heavy-rain-weighted checkpoint with a ≥50 mm-weighted one, which gives up a little MAE for much better heavy-rain detection, the more relevant trade for agriculture. There is currently no probabilistic or uncertainty output; every value is a single deterministic estimate.',
     ],
   },
   {
@@ -332,6 +338,56 @@ function GridIllustration() {
   );
 }
 
+/* ── Real model figures (from the project repo) ──────────────────────────── */
+const FIGURES = [
+  { tab: 'Overview', src: '/figures/comparison.png',  title: 'Input, baselines, U-Net, reference and error', caption: "Left to right: IMD 0.25° input, two baselines, the U-Net, the CHIRPS 0.05° reference and the U-Net's error against it." },
+  { tab: 'Today',    src: '/figures/imd-coarse.png',  title: 'What exists today',   caption: 'IMD at 0.25°: blocky cells about 28 km across.' },
+  { tab: 'Target',   src: '/figures/chirps-ref.png',  title: 'The fine reference',  caption: 'CHIRPS at 0.05°: the detail the model is scored against.' },
+  { tab: 'Misses',   src: '/figures/error-map.png',   title: 'Where it still misses', caption: "Model minus reference. The Western Ghats' heaviest rain is under-estimated." },
+];
+
+function FigureGallery() {
+  const [i, setI] = useState(0);
+  const f = FIGURES[i];
+  return (
+    <div className="grid md:grid-cols-[15rem_1fr] gap-6 items-center">
+      <div>
+        <div role="tablist" className="flex md:flex-col gap-1.5 mb-4 overflow-x-auto">
+          {FIGURES.map((x, k) => (
+            <button
+              key={x.tab}
+              role="tab"
+              aria-selected={k === i}
+              onClick={() => setI(k)}
+              className="text-left text-xs px-3 py-1.5 rounded-md whitespace-nowrap transition-colors"
+              style={{
+                color: k === i ? 'var(--text)' : 'var(--muted)',
+                background: k === i ? 'var(--panel)' : 'transparent',
+                border: `1px solid ${k === i ? 'var(--hairline-strong)' : 'transparent'}`,
+              }}
+            >
+              {x.tab}
+            </button>
+          ))}
+        </div>
+        <p className="text-sm font-semibold mb-1" style={{ color: 'var(--text)' }}>{f.title}</p>
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>{f.caption}</p>
+      </div>
+      <a
+        href={f.src}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open full size"
+        className="flex items-center justify-center rounded-xl overflow-hidden h-[17rem] md:h-[20rem]"
+        style={{ background: '#fff', border: '1px solid var(--hairline-strong)' }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img key={f.src} src={f.src} alt={f.title} loading="lazy" className="max-w-full max-h-full object-contain" />
+      </a>
+    </div>
+  );
+}
+
 /* ── Main page ───────────────────────────────────────────────────────────── */
 export function LandingPage() {
   // Scroll-reveal: fade/rise each .reveal section in once as it enters the
@@ -388,9 +444,9 @@ export function LandingPage() {
 
               <p className="text-sm leading-relaxed max-w-lg mb-8" style={{ color: 'var(--text-2)' }}>
                 Obsidian learns the terrain- and atmosphere-driven correction that turns IMD&apos;s 0.25° (~28 km)
-                daily rainfall into a 0.05° (~5 km) field, then aggregates it to 86,103 LGD Gram Panchayats
-                across 15 Indian states. Every value comes with its inputs, mapping method and metrics, plus an
-                AI-written explanation of what drove it.
+                daily rainfall into a 0.05° (~5 km) field, then aggregates it to 87,735 LGD Gram Panchayats
+                across 15 Indian states. Every value comes with its inputs, mapping method and metrics, plus a
+                plain-language reason for the crop advisory built on it, available in regional languages.
               </p>
 
               <div className="flex flex-wrap items-center gap-3 mb-8">
@@ -446,6 +502,21 @@ export function LandingPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* ═══ SEEING IT ══════════════════════════════════════════════════ */}
+        <section id="gallery" className="reveal max-w-6xl mx-auto px-6 py-16">
+          <SectionHeader
+            eyebrow="In pictures"
+            title="From a blurry grid to a usable map"
+            sub="Real output over the Deccan on 13 July 2022, an active monsoon day. Click the image to open it full size."
+          />
+
+          <FigureGallery />
+
+          <p className="text-[0.65rem] mt-5" style={{ color: 'var(--muted)' }}>
+            These figures come from an earlier single-checkpoint run kept in the repository. The deployed ensemble&apos;s scores are in Results below.
+          </p>
         </section>
 
         {/* ═══ THE PROBLEM + LADDER ═══════════════════════════════════════ */}
@@ -564,13 +635,29 @@ export function LandingPage() {
               ))}
             </div>
 
-            <div className="flex flex-wrap gap-x-8 gap-y-3 py-3" style={{ borderTop: '1px solid var(--hairline)' }}>
-              {COVERAGE.map((c) => (
-                <div key={c.label}>
-                  <span className="font-mono font-bold text-base" style={{ color: 'var(--text)' }}>{c.value}</span>{' '}
-                  <span className="text-[0.55rem] uppercase tracking-wider font-mono" style={{ color: 'var(--muted)' }}>{c.label}</span>
-                </div>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-6 py-4" style={{ borderTop: '1px solid var(--hairline)' }}>
+              <div className="flex flex-wrap gap-x-8 gap-y-3">
+                {COVERAGE.map((c) => (
+                  <div key={c.label}>
+                    <span className="font-mono font-bold text-base" style={{ color: 'var(--text)' }}>{c.value}</span>{' '}
+                    <span className="text-[0.55rem] uppercase tracking-wider font-mono" style={{ color: 'var(--muted)' }}>{c.label}</span>
+                  </div>
+                ))}
+              </div>
+              <a
+                href="/figures/panchayat-map.png"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Panchayat rainfall, 1 June 2022. Click to enlarge"
+                className="flex items-center gap-3 group"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/figures/panchayat-map.png" alt="Panchayat rainfall map, 1 June 2022" loading="lazy"
+                  className="h-24 w-auto rounded-md" style={{ background: '#fff', border: '1px solid var(--hairline-strong)' }} />
+                <span className="text-[0.65rem] leading-relaxed max-w-[11rem]" style={{ color: 'var(--muted)' }}>
+                  Daily rainfall per Gram Panchayat, 1 June 2022. Click to enlarge.
+                </span>
+              </a>
             </div>
           </div>
         </section>
@@ -580,7 +667,7 @@ export function LandingPage() {
           <SectionHeader
             eyebrow="Explainable AI"
             title="Every number comes with a reason"
-            sub="After you downscale a panchayat, the dashboard asks a language model to explain the estimate from the model's own inputs."
+            sub="Rules decide what the advisory says. A language model may only rephrase it, and is rejected if it adds a number the rules did not produce."
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -600,10 +687,10 @@ export function LandingPage() {
                 <span className="label-sm">How it stays honest</span>
               </div>
               <ul className="space-y-3 text-xs leading-relaxed" style={{ color: 'var(--text-2)' }}>
-                <li>The model is given only the numbers the pipeline produced and is told not to invent new ones.</li>
-                <li>Factor bars are the language model&apos;s qualitative judgement, not SHAP values.</li>
-                <li>The API key stays on the server; the browser never sees it.</li>
-                <li>If the language model is unreachable, the panel says so and falls back to rule-based text.</li>
+                <li>Nine deterministic rules decide the advisory. Each reports its inputs, its margin to the threshold and what would flip it.</li>
+                <li>The language model sees only the numbers the rules produced. Any reply containing a new number is discarded.</li>
+                <li>API keys stay on the server; the browser never sees them.</li>
+                <li>With no keys, or if the model is unreachable, the same advisory is shown as rule-based text.</li>
               </ul>
             </div>
           </div>
@@ -647,14 +734,15 @@ export function LandingPage() {
         <section id="results" className="reveal landing-section max-w-6xl mx-auto px-6 py-16">
           <SectionHeader
             eyebrow="Results"
-            title="Ablation across the evaluation splits"
-            sub="Reference: CHIRPS 0.05°. Lower MAE is better."
+            title="Deccan ablation, validation and test"
+            sub="Reference: CHIRPS 0.05°. Lower MAE and RMSE are better; higher corr and F1 are better."
           />
 
           <div className="flex items-start gap-2.5 p-3.5 rounded-xl mb-4" style={{ background: 'rgba(176, 141, 87, 0.05)', border: '1px solid rgba(176, 141, 87, 0.18)' }}>
             <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'var(--accent)' }} />
             <p className="text-[0.7rem] leading-relaxed" style={{ color: 'var(--text-2)' }}>
-              These are pilot numbers (Western Ghats, 13–17° N, 2019–2022). Training on the full Deccan dataset is still pending.
+              Every row was trained on 2018–2020, chosen on the 2021 validation split, and scored once on the unseen
+              2022 test split (122 days, 44,243 land cells per day). MAE, RMSE in mm/day.
             </p>
           </div>
 
@@ -663,11 +751,15 @@ export function LandingPage() {
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--hairline)', background: 'var(--panel)' }}>
                   <th className="text-left py-3 px-4 label-sm">Model</th>
-                  <th className="text-right py-3 px-4 label-sm whitespace-nowrap">Val MAE</th>
-                  <th className="text-right py-3 px-4 label-sm whitespace-nowrap">Val corr</th>
-                  <th className="text-right py-3 px-4 label-sm whitespace-nowrap">Test MAE</th>
-                  <th className="text-right py-3 px-4 label-sm whitespace-nowrap">Test corr</th>
-                  <th className="text-right py-3 px-4 label-sm whitespace-nowrap">F1 ≥25mm</th>
+                  <th className="text-right py-3 px-3 label-sm whitespace-nowrap">Val MAE</th>
+                  <th className="text-right py-3 px-3 label-sm whitespace-nowrap">Val RMSE</th>
+                  <th className="text-right py-3 px-3 label-sm whitespace-nowrap">Val corr</th>
+                  <th className="text-right py-3 px-3 label-sm whitespace-nowrap">Test MAE</th>
+                  <th className="text-right py-3 px-3 label-sm whitespace-nowrap">Test RMSE</th>
+                  <th className="text-right py-3 px-3 label-sm whitespace-nowrap">Test corr</th>
+                  <th className="text-right py-3 px-3 label-sm whitespace-nowrap">F1 ≥10</th>
+                  <th className="text-right py-3 px-3 label-sm whitespace-nowrap">F1 ≥25</th>
+                  <th className="text-right py-3 px-3 label-sm whitespace-nowrap">F1 ≥50</th>
                 </tr>
               </thead>
               <tbody>
@@ -676,12 +768,12 @@ export function LandingPage() {
                     key={row.model}
                     style={{ borderBottom: '1px solid var(--hairline)', background: row.selected ? 'rgba(176, 141, 87, 0.07)' : undefined }}
                   >
-                    <td className="py-2.5 px-4" style={{ color: row.selected ? 'var(--text)' : 'var(--text-2)' }}>
+                    <td className="py-2.5 px-4 whitespace-nowrap" style={{ color: row.selected ? 'var(--text)' : 'var(--text-2)' }}>
                       <span className="flex items-center gap-2">
                         <span>{row.model}</span>
                         {row.selected && (
                           <span className="text-[0.5rem] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(176, 141, 87, 0.15)', color: 'var(--accent)' }}>
-                            Selected
+                            Deployed
                           </span>
                         )}
                         {row.flagged && (
@@ -689,11 +781,9 @@ export function LandingPage() {
                         )}
                       </span>
                     </td>
-                    <td className="py-2.5 px-4 text-right font-mono" style={{ color: 'var(--text-2)' }}>{row.valMae}</td>
-                    <td className="py-2.5 px-4 text-right font-mono" style={{ color: 'var(--text-2)' }}>{row.valCorr}</td>
-                    <td className="py-2.5 px-4 text-right font-mono" style={{ color: 'var(--text-2)' }}>{row.testMae}</td>
-                    <td className="py-2.5 px-4 text-right font-mono" style={{ color: 'var(--text-2)' }}>{row.testCorr}</td>
-                    <td className="py-2.5 px-4 text-right font-mono" style={{ color: 'var(--text-2)' }}>{row.f1}</td>
+                    {[row.valMae, row.valRmse, row.valCorr, row.testMae, row.testRmse, row.testCorr, row.f10, row.f25, row.f50].map((v, i) => (
+                      <td key={i} className="py-2.5 px-3 text-right font-mono" style={{ color: row.selected ? 'var(--text)' : 'var(--text-2)' }}>{v}</td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -702,9 +792,9 @@ export function LandingPage() {
 
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { label: 'MAE vs baseline', value: '−15.9%',    note: 'selected model D on unseen 2022 data' },
-              { label: 'Correlation',     value: 'B → C → D', note: 'rose monotonically across ablations' },
-              { label: 'Weighted loss',   value: '−0.7 mm',   note: 'MAE cost for far better heavy-rain detection' },
+              { label: 'MAE vs baseline', value: '9.60 → 8.43', note: 'deployed EF on unseen 2022 data (−12.2%)' },
+              { label: 'Correlation',     value: '0.385 → 0.527', note: 'pattern of where and when it rains' },
+              { label: 'Heavy rain F1 ≥25', value: '0.343 → 0.442', note: 'beats the baseline at every threshold' },
             ].map((s) => (
               <div key={s.label} className="landing-card p-4">
                 <p className="text-[0.55rem] uppercase tracking-wider mb-2 font-mono" style={{ color: 'var(--muted)' }}>{s.label}</p>
@@ -790,7 +880,7 @@ export function LandingPage() {
         </div>
         <div className="py-4 text-center" style={{ borderTop: '1px solid var(--hairline)' }}>
           <p className="text-[0.6rem] font-mono uppercase tracking-widest" style={{ color: 'var(--muted)', opacity: 0.6 }}>
-            Obsidian · 15 states · 86,103 panchayats · 2022 monsoon dataset
+            Obsidian · 15 states · 87,735 panchayats · Multi-lingual support · Agro-based insights
           </p>
         </div>
       </footer>

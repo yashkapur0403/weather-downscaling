@@ -213,7 +213,7 @@ export function LeftSidebar({
           </div>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { label: 'Panchayats', value: '86,103' },
+              { label: 'Panchayats', value: '87,735' },
               { label: 'States', value: '15' },
               { label: 'Reference', value: 'CHIRPS' },
             ].map(s => (

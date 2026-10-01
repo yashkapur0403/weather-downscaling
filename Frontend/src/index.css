@@ -618,11 +618,6 @@ body {
   border-color: var(--accent);
   outline: none;
 }
-.advisory-select option {
-  background: var(--panel);
-  color: var(--text);
-}
-
 /* ── Metric panels ──────────────────────────────────────────────────────── */
 .metric-panel {
   padding: 0.75rem;

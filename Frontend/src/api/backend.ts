@@ -133,6 +133,21 @@ export async function fetchExplanation(
   });
 }
 
+// ── Dashboard chatbot (uses POST /api/explain/generic) ───────────────────────────────────────
+export interface ChatTurn { role: 'user' | 'assistant'; content: string }
+
+export async function sendChat(
+  message: string,
+  context: string,
+  output_language: LangCode,
+): Promise<{ answer: string }> {
+  const r = await apiFetch<{ explanation: { answer: string } }>('/api/explain/generic', {
+    method: 'POST',
+    body: JSON.stringify({ text: message, context, input_language: 'auto', output_language }),
+  });
+  return { answer: r.explanation.answer };
+}
+
 // ── XAI status (GET /api/explain/status) — is the LLM configured? ────────────
 export async function fetchExplainStatus(): Promise<{ enabled: boolean; provider: string; model: string }> {
   return apiFetch<{ enabled: boolean; provider: string; model: string }>('/api/explain/status');
