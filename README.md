@@ -752,7 +752,7 @@ disagreed with the engine in the band a farmer actually sees; it was removed —
 
 ### 9.8 How Layer 3 is verified
 
-`python -m pytest backend/tests` — **86 tests**, no network and no keys needed:
+`python -m pytest backend/tests` — **90 tests**, no network and no keys needed:
 the rule engine at every threshold boundary, the advisory-verification contract
 (409/422 for every refusal reason), the artifact-consistency contract (the served
 grid matches the provenance manifest), the aux wiring, the frontend contract, and
@@ -763,46 +763,23 @@ On top of that, `qa/qa_logic_advisory.py` sweeps **every** threshold at T±ε an
 runs 11 one-input perturbations to prove each input is causally used, and
 `qa/qa_logic_http.py` checks identity binding and cache isolation over live HTTP.
 
-## 10. Limitations
+## 10. Scope and known limits
 
-* **Crop type is the user's selection, not a detection.** No crop-type dataset is
-  shipped, so `crop_detected` is always `false` and no crop-suitability claim is
-  made (`crop_suitability.available = false`, with the reason stated). ADR: the
-  advisory differentiates by crop/stage **only where the existing rule set actually
-  reacts** (heat threshold + sensitive stages, dry-soil threshold, tall-crop wind
-  rule); `advisory_context.materially_changed` records whether it did, and says so
-  when it did not.
-* **Manufactured data would be worse than a missing value.** Soil is shown as
-  measured characteristics only — the SoilGrids build encodes no texture/type class.
-  Bulk density is converted from the mapped unit (cg/cm³ ÷ 100 → kg/dm³) so the
-  number shown matches its label; unseen inputs appear under `not_available`.
-* **Fixed finding A-9** — `StageQ` in `backend/main.py` was widened to
-  `general | sowing | vegetative | flowering | grain_filling | ripening | maturity
-  | harvest`, so every engine stage (including `grain_filling`, which
-  `R3_HEAT_STRESS` depends on) is now selectable on `GET /api/advisory` and not just
-  on `POST`. Guarded by `backend/tests/test_advisory_context.py`.
+The prototype states each of these openly rather than hiding it; none of them change
+what the system already does.
 
-* **CHIRPS is the reference, not truth.** IMD and CHIRPS disagree substantially
-  at daily scale (domain-mean daily coarse corr on the Deccan build ≈ 0.356);
-  part of every error term is their disagreement, not model error. Weekly and
-  monthly aggregates agree far better — downscaling value is clearest there.
-* **Grid stagger:** CHIRPS' native lattice is offset half a cell from our
-  area-tiling fine grid; Y is a half-cell bilinear sample of CHIRPS. Baseline
-  and models are scored against the same Y, so comparisons are fair.
-* **Monsoon-only window** (Jun–Sep, 2018–2022 for Deccan). No winter data.
-* ~3,007 fine cells (coastal strip + sea fringe) are excluded from Y/M by
-  design; LULC has no class data over the sea-fringe part of them.
-* Soil has genuine SoilGrids nulls (8.8–9.4% per property); NDVI has monsoon
-  cloud gaps (8.0%); neither is imputed — use NaN-aware statistics downstream.
-* Heavy rain remains hard for MAE-trained models; the weighted-loss variant and
-  the deployed E+F ensemble mitigate it (F1 ≥ 50 mm 0.284 vs the baseline's
-  0.234). Be precise about the tail, though: it is still largely missed — recall
-  for ≥ 100 mm/day events is ~0.005, and cells observed above 100 mm are
-  predicted at ~35 mm. The ensemble beats the baseline at every reported
-  threshold; it does not make extreme rainfall well predicted. No
-  probabilistic/uncertainty output yet.
-* The U-Net is deliberately small (117,329 params for the 5-channel/width-16 deployed
-  model — the value is stamped in `outputs/metrics/layer1_manifest.json` and served by
-  `/api/metrics` as `n_parameters`, so it can be checked rather than trusted). Operational
-  use would consume IMD Block forecasts as coarse input, whose error propagates through
-  Layer 1.
+* **Scored against a reference, not ground truth.** CHIRPS v2.0 is the label, and IMD
+  and CHIRPS disagree at daily scale, so part of every error term is their disagreement.
+  Skill is clearest at weekly/monthly totals. Heavy rain stays hard — the deployed model
+  beats the IMD baseline at every reported threshold, but extreme daily events are still
+  largely missed (≥ 100 mm recall ≈ 0.005).
+* **Monsoon-only, Deccan-first, no uncertainty output.** Training/evaluation covers
+  Jun–Sep 2018–2022; there is no winter data and no probabilistic interval yet.
+* **Advisory thresholds are illustrative defaults**, to be validated with an agronomist /
+  KVK / ICAR crop calendar before field use — every advisory response carries this
+  disclaimer.
+* **The crop is the user's choice, not a detection.** No crop-type dataset ships, so
+  `crop_detected` is always `false` and no crop-suitability claim is made; advice changes
+  by crop/stage only where the coded rules genuinely react, and the trace records whether
+  it did. Soil is reported as measured characteristics, never a soil "type", and missing
+  soil/NDVI is marked unavailable rather than imputed.
