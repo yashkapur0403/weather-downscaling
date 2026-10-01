@@ -7,7 +7,7 @@ import { classifyRisk, RISK_LABEL } from '../../types';
 import { Search, MapPin, Loader2, Layers, Clock, X, BarChart3, Activity } from 'lucide-react';
 
 // ── Recent searches helpers ───────────────────────────────────────────────────
-const RECENT_KEY = 'freebuff_recent_searches';
+const RECENT_KEY = 'obsidian_recent_searches';
 const MAX_RECENT = 6;
 
 function loadRecent(): Panchayat[] {
