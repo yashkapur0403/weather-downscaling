@@ -111,7 +111,7 @@ ERA5-Land daily T/Tmax/Td   ─┘            (optional channels)         │
 * **Loss:** masked MAE (default) or a heavy-rain-weighted MAE (selected by
   validation, see §3).
 
-## 2. Regions, datasets and references (sources actually used; no GEE authentication required)
+## 2. Regions, datasets and references
 
 ### 2.1 Regions
 
